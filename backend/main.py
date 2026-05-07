@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from api.endpoints import router
+
 app = FastAPI(
     title="GW2 Assistant API",
     description="Backend for GW2 Assistant — proxy to GW2 API and DeepSeek AI",
@@ -18,6 +20,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(router)
 
 
 @app.get("/health")
