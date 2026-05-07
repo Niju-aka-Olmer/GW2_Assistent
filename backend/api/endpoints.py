@@ -25,6 +25,11 @@ from utils.errors import AuthError
 router = APIRouter(prefix="/api")
 
 
+@router.get("/health")
+async def api_health():
+    return {"status": "ok", "version": "1.0.0"}
+
+
 def _get_api_key(authorization: Optional[str] = None) -> str:
     if not authorization:
         raise AuthError(detail="Missing Authorization header")
