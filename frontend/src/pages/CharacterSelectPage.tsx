@@ -44,7 +44,7 @@ export function CharacterSelectPage() {
   const { apiKey, setApiKey, clearApiKey } = useAuth();
   const [keyInput, setKeyInput] = useState('');
 
-  const { data, isLoading, isError, error: queryError } = useCharacters();
+  const { data, isLoading, isError, error: queryError } = useCharacters(!!apiKey);
 
   const errorMessage = useMemo(() => {
     if (!isError || !queryError) return null;

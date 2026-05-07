@@ -1,12 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { gw2Client } from '../../../shared/api/gw2Client';
 
-export function useCharacters() {
+export function useCharacters(enabled = true) {
   return useQuery({
     queryKey: ['characters'],
     queryFn: () => gw2Client.getCharacters(),
     staleTime: 5 * 60 * 1000,
     retry: 2,
+    enabled,
   });
 }
 
