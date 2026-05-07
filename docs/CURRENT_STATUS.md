@@ -1,11 +1,12 @@
 # GW2 Assistant — Current Status
 
-## Текущий статус проекта: Инфраструктура готова
+## Текущий статус проекта: Бэкенд-ядро готово
 
-Проект инициализирован, связан с GitHub, развёрнут на ВМ. Готов к разработке бэкенда.
+Реализован полноценный бэкенд с GW2 API клиентом, кэшированием, аутентификацией и REST эндпоинтами. Развёрнуто на ВМ (192.168.1.180).
 
 ## Что сделано
 
+### Инфраструктура (Этап 1)
 - [x] Анализ требований (файл 123.txt)
 - [x] Выбор технологического стека
 - [x] Архитектурная документация (FSD)
@@ -19,28 +20,31 @@
 - [x] Деплой на ВМ (192.168.1.180): бэкенд :8000, фронтенд :3000
 - [x] Установлен Docker на ВМ
 
+### Бэкенд — ядро GW2 API (Этап 2)
+- [x] Pydantic модели: Character, Item, Price, Build, Equipment, Inventory
+- [x] In-memory кэш (TTLCache): character_cache (10 мин), item_cache (1 час), price_cache (5 мин), token_cache (1 мин)
+- [x] Асинхронный GW2 API клиент (gw2_client.py) с батчингом по 200 ID
+- [x] Сервис аутентификации (auth_service.py): валидация API-ключа через /v2/tokeninfo
+- [x] Эндпоинт POST /api/auth — проверка ключа и permissions
+- [x] Эндпоинт GET /api/characters — список персонажей с core-данными
+- [x] Эндпоинт GET /api/characters/{name}/build — билд, специализации, экипировка
+- [x] Эндпоинт GET /api/characters/{name}/inventory — инвентарь персонажа
+- [x] Эндпоинт GET /api/account/bank — банк аккаунта
+- [x] Эндпоинт GET /api/items/prices — цены предметов (batch)
+- [x] Эндпоинт GET /api/items/details — детали предметов (batch)
+- [x] Эндпоинт POST /api/cache/clear — сброс кэша
+- [x] Обработка ошибок: 401, 403, 404, 429, 502
+- [x] История изменений в Git, код на GitHub
+
 ## Что нужно сделать
 
-### Этап 2: Бэкенд — ядро
-
-- [ ] Реализовать API клиент GW2 (gw2_client.py)
-- [ ] Реализовать in-memory кэш (memory_cache.py)
-- [ ] Реализовать эндпоинт /api/auth (проверка API-ключа)
-- [ ] Реализовать эндпоинт /api/characters (список персонажей)
-- [ ] Реализовать эндпоинт /api/characters/{name}/build (билд)
-- [ ] Реализовать эндпоинт /api/characters/{name}/inventory (инвентарь)
-- [ ] Реализовать эндпоинт /api/account/bank (банк)
-- [ ] Реализовать модели Pydantic
-
-### Этап 3: Бэкенд — AI
-
+### Этап 3: Бэкенд — DeepSeek AI
 - [ ] Реализовать DeepSeek клиент (deepseek_client.py)
-- [ ] Реализовать эндпоинт /api/deepseek/analyze-build
-- [ ] Реализовать эндпоинт /api/deepseek/analyze-inventory
-- [ ] Реализовать формирование промптов
+- [ ] Эндпоинт /api/deepseek/analyze-build
+- [ ] Эндпоинт /api/deepseek/analyze-inventory
+- [ ] Формирование промптов для анализа
 
 ### Этап 4: Фронтенд — общие компоненты
-
 - [ ] Создать Layout (шапка, навигация, подвал)
 - [ ] Создать UI-kit: Button, Input, Card, Spinner, ErrorBoundary
 - [ ] Создать ThemeProvider + ThemeToggle
@@ -48,13 +52,11 @@
 - [ ] Настроить React Router
 
 ### Этап 5: Фронтенд — сущности и API
-
 - [ ] Создать types для персонажа, предмета, билда, цены
 - [ ] Создать API клиенты (gw2Client, deepseekClient)
 - [ ] Настроить React Query
 
 ### Этап 6: Фронтенд — страницы
-
 - [ ] Страница выбора персонажа (CharacterSelectPage)
 - [ ] Страница билда (BuildPage)
 - [ ] Страница инвентаря и банка (InventoryPage)
@@ -63,7 +65,6 @@
 - [ ] Виджет PriceBadge
 
 ### Этап 7: Фичи и доработки
-
 - [ ] Фича analyzeBuild (AI-анализ билда)
 - [ ] Фича analyzeInventory (AI-анализ инвентаря)
 - [ ] Фича filterItems (фильтрация предметов)
@@ -71,10 +72,9 @@
 - [ ] Dark/Light theme polish
 
 ### Этап 8: Деплой
-
-- [ ] Dockerfile для бэкенда
-- [ ] Dockerfile для фронтенда
-- [ ] docker-compose.yml
+- [ ] Dockerfile для бэкенда — создан
+- [ ] Dockerfile для фронтенда — создан
+- [ ] docker-compose.yml — создан
 - [ ] Документация по деплою
 - [ ] Настройка production-сборки
 
