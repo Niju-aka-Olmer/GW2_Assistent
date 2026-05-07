@@ -6,8 +6,9 @@ import { Skeleton } from '../shared/ui/Skeleton';
 import { ItemTooltip } from '../widgets/ItemTooltip/ui/ItemTooltip';
 import { ItemModal } from '../widgets/ItemModal';
 import { AnalyzeButton } from '../widgets/AnalyzeButton';
+import { CharacterTabs } from '../widgets/CharacterTabs';
 import { useCharacterBuild } from '../entities/character/api/getCharacters';
-import { useItemDetails } from '../entities/item/api/getItems';
+import { useItemDetails, useItemPrices } from '../entities/item/api/getItems';
 import { getRarityColor, getRarityBorderClass } from '../entities/item/lib/getRarityColor';
 import { formatStats } from '../widgets/ItemTooltip/lib/formatStats';
 import { deepseekClient } from '../shared/api/deepseekClient';
@@ -68,9 +69,10 @@ interface EquipmentItem {
   upgrades?: number[];
 }
 
-function BuildEquipmentGrid({ equipment, detailsMap, onItemClick }: {
+function BuildEquipmentGrid({ equipment, detailsMap, pricesMap, onItemClick }: {
   equipment: EquipmentItem[];
   detailsMap: Record<number, ItemDetails>;
+  pricesMap: Record<number, { buys: { unit_price: number } | null; sells: { unit_price: number } | null }>;
   onItemClick: (item: ItemDetails, slot: EquipmentItem) => void;
 }) {
   const grouped = CATEGORIES.map((cat) => ({
@@ -109,9 +111,10 @@ function BuildEquipmentGrid({ equipment, detailsMap, onItemClick }: {
                   flags: [],
                   chat_link: '',
                 };
+                const price = pricesMap[item.id];
 
                 return (
-                  <ItemTooltip key={item.slot} item={displayItem}>
+                  <ItemTooltip key={item.slot} item={displayItem} buys={price?.buys} sells={price?.sells}>
                     <div
                       className={`bg-bg-secondary border-2 rounded-lg p-2 text-center cursor-pointer transition-all hover:bg-bg-hover hover:scale-105 ${getRarityBorderClass(item.rarity)}`}
                       onClick={() => onItemClick(displayItem, item)}
@@ -165,8 +168,9 @@ function BuildEquipmentGrid({ equipment, detailsMap, onItemClick }: {
                 flags: [],
                 chat_link: '',
               };
+              const price = pricesMap[item.id];
               return (
-                <ItemTooltip key={item.slot} item={displayItem}>
+                <ItemTooltip key={item.slot} item={displayItem} buys={price?.buys} sells={price?.sells}>
                   <div
                     className={`bg-bg-secondary border-2 rounded-lg p-2 text-center cursor-pointer transition-all hover:bg-bg-hover hover:scale-105 ${getRarityBorderClass(item.rarity)}`}
                     onClick={() => onItemClick(displayItem, item)}
@@ -204,12 +208,24 @@ export function BuildPage() {
   }, [buildData]);
 
   const { data: detailsData } = useItemDetails(itemIds);
+  const { data: pricesData } = useItemPrices(itemIds);
 
   const detailsMap = useMemo(() => {
     const map: Record<number, ItemDetails> = {};
     detailsData?.items?.forEach(item => { map[item.id] = item; });
     return map;
   }, [detailsData]);
+
+  const pricesMap = useMemo(() => {
+    const map: Record<number, { buys: { unit_price: number } | null; sells: { unit_price: number } | null }> = {};
+    pricesData?.prices?.forEach(p => {
+      map[p.id] = {
+        buys: p.buys as unknown as { unit_price: number } | null,
+        sells: p.sells as unknown as { unit_price: number } | null,
+      };
+    });
+    return map;
+  }, [pricesData]);
 
   if (isLoading) {
     return (
@@ -266,6 +282,7 @@ export function BuildPage() {
 
   return (
     <Layout>
+      <CharacterTabs name={name || ''} />
       <div className="mb-8">
         <div className="flex items-center justify-between">
           <div>
@@ -313,6 +330,7 @@ export function BuildPage() {
           <BuildEquipmentGrid
             equipment={sortedEquipment}
             detailsMap={detailsMap}
+            pricesMap={pricesMap}
             onItemClick={(item, slot) => setModalItem({ item, slot: { slot: slot.slot, stats: slot.stats as unknown as Record<string, number> | undefined } })}
           />
         </div>

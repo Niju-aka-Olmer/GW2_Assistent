@@ -33,9 +33,10 @@ function CopperCoin({ size = 12 }: { size?: number }) {
 
 interface CoinBadgeProps {
   value: number;
+  size?: number;
 }
 
-export function CoinBadge({ value }: CoinBadgeProps) {
+export function CoinBadge({ value, size = 12 }: CoinBadgeProps) {
   const { gold, silver, copper } = splitCoins(value);
   const parts: { amount: number; type: 'gold' | 'silver' | 'copper' }[] = [];
   if (gold > 0) parts.push({ amount: gold, type: 'gold' });
@@ -46,9 +47,9 @@ export function CoinBadge({ value }: CoinBadgeProps) {
     <span className="inline-flex items-center gap-1 align-middle">
       {parts.map((p, i) => (
         <span key={i} className="inline-flex items-center gap-0.5">
-          {p.type === 'gold' && <GoldCoin />}
-          {p.type === 'silver' && <SilverCoin />}
-          {p.type === 'copper' && <CopperCoin />}
+          {p.type === 'gold' && <GoldCoin size={size} />}
+          {p.type === 'silver' && <SilverCoin size={size} />}
+          {p.type === 'copper' && <CopperCoin size={size} />}
           <span className={
             p.type === 'gold' ? 'text-yellow-400' :
             p.type === 'silver' ? 'text-gray-300' :

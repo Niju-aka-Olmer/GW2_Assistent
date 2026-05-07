@@ -11,4 +11,8 @@ export const RUS_ATTRIBUTES: Record<string, string> = {
   HealingPower: 'Сила исцеления',
   BoonDuration: 'Длительность благословений',
   AgonyResistance: 'Сопротивление агонии',
+  Healing: 'Исцеление',
+  CritDamage: 'Крит. урон',
+  Armor: 'Броня',
+  Health: 'Здоровье',
 };

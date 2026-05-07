@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useState, useMemo } from 'react';
 import { Layout } from '../shared/ui/Layout';
 import { Card } from '../shared/ui/Card';
@@ -8,6 +8,7 @@ import { ItemTooltip } from '../widgets/ItemTooltip/ui/ItemTooltip';
 import { PriceBadge } from '../widgets/PriceBadge/ui/PriceBadge';
 import { ItemModal } from '../widgets/ItemModal';
 import { AnalyzeButton } from '../widgets/AnalyzeButton';
+import { CharacterTabs } from '../widgets/CharacterTabs';
 import { FilterBar } from '../widgets/FilterBar';
 import { useCharacterInventory } from '../entities/character/api/getCharacters';
 import { useBank } from '../entities/bank/api/getBank';
@@ -81,7 +82,7 @@ function ItemCell({ item, details, buys, sells, onItemClick }: {
   const displayItem = buildDisplayItem(item, details);
 
   return (
-    <ItemTooltip item={displayItem}>
+    <ItemTooltip item={displayItem} buys={buys} sells={sells}>
       <div
         className={`relative bg-bg-secondary border-2 rounded-lg p-1.5 text-center transition-all hover:bg-bg-hover hover:scale-105 cursor-pointer ${getRarityBorderClass(item.rarity)}`}
         onClick={() => onItemClick?.(displayItem)}
@@ -123,7 +124,8 @@ function ItemCell({ item, details, buys, sells, onItemClick }: {
 
 export function InventoryPage() {
   const { name } = useParams<{ name: string }>();
-  const [activeTab, setActiveTab] = useState('inventory');
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'inventory');
 
   const [search, setSearch] = useState('');
   const [rarityFilter, setRarityFilter] = useState<string[]>([]);
@@ -240,6 +242,7 @@ export function InventoryPage() {
 
   return (
     <Layout>
+      <CharacterTabs name={name || ''} />
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold text-text-primary">
           {activeTab === 'inventory' ? `Инвентарь: ${name}` : 'Банк'}

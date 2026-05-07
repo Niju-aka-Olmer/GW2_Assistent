@@ -49,33 +49,33 @@ function CharacterCard({ character }: { character: CharacterSummary }) {
       to={`/build/${encodeURIComponent(character.name)}`}
       className="block group"
     >
-      <Card className="flex flex-col items-center text-center p-4 transition-all hover:scale-[1.02] hover:shadow-xl">
-        <div className="relative w-24 h-24 bg-bg-tertiary rounded-full overflow-hidden mb-3 flex items-center justify-center">
+      <Card className="flex items-center gap-4 p-4 transition-all hover:scale-[1.02] hover:shadow-xl">
+        <div className="flex-shrink-0 w-16 h-16 bg-bg-tertiary rounded-xl overflow-hidden flex items-center justify-center">
           {PROFESSION_ICONS[character.profession] ? (
-            <img src={PROFESSION_ICONS[character.profession]} alt={character.profession} className="w-20 h-20" />
+            <img src={PROFESSION_ICONS[character.profession]} alt={character.profession} className="w-14 h-14" />
           ) : (
-            <span className="text-4xl">?</span>
+            <span className="text-3xl">?</span>
           )}
         </div>
 
-        <h2 className="font-bold text-lg text-text-primary group-hover:text-indigo-400 transition-colors">
-          {character.name}
-        </h2>
+        <div className="flex-1 min-w-0">
+          <h2 className="font-bold text-lg text-text-primary group-hover:text-indigo-400 transition-colors truncate">
+            {character.name}
+          </h2>
 
-        <p className="text-sm text-text-secondary mt-1">
-          {RACE_RU[character.race] || character.race}
-        </p>
+          <p className="text-sm text-text-secondary">
+            {RACE_RU[character.race] || character.race}
+            <span className="text-text-tertiary ml-1">•</span>
+            <span className="text-text-tertiary ml-1">{PROFESSION_RU[character.profession] || character.profession}</span>
+            <span className="text-text-tertiary ml-1">• Ур. {character.level}</span>
+          </p>
 
-        <p className="text-sm text-text-secondary">
-          {PROFESSION_RU[character.profession] || character.profession}
-          <span className="text-text-tertiary ml-1">• Ур. {character.level}</span>
-        </p>
-
-        {character.coins > 0 && (
-          <div className="mt-2 pt-2 border-t border-border-primary w-full flex items-center justify-center">
-            <CoinBadge value={character.coins} />
-          </div>
-        )}
+          {character.coins > 0 && (
+            <div className="mt-1">
+              <CoinBadge value={character.coins} />
+            </div>
+          )}
+        </div>
       </Card>
     </Link>
   );
