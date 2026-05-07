@@ -362,12 +362,16 @@ async def deepseek_analyze_inventory(
 
     if target == "bank":
         bank_data = await get_bank(api_key)
-        prompt = f"[АНАЛИЗ БАНКА]\n\nСодержимое банка:\n"
+        prompt = "[АНАЛИЗ БАНКА]\n\nСодержимое банка:\n"
         bank_has_items = False
         for slot in bank_data:
             if slot and slot.get("id"):
                 bank_has_items = True
-                prompt += f"  - {slot.get('name', f'ID:{slot[\"id\"]}')} (x{slot.get('count', 1)}, редкость: {slot.get('rarity', 'N/A')}, уровень: {slot.get('level', 0)})\n"
+                item_name = slot.get("name", f"ID:{slot['id']}")
+                item_count = slot.get("count", 1)
+                item_rarity = slot.get("rarity", "N/A")
+                item_level = slot.get("level", 0)
+                prompt += f"  - {item_name} (x{item_count}, редкость: {item_rarity}, уровень: {item_level})\n"
         if not bank_has_items:
             prompt += "  Банк пуст.\n"
         prompt += f"\n\n---\n\n{INVENTORY_INSTRUCTIONS}"
