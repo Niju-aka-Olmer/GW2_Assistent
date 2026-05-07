@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { SimpleMarkdown } from '../../../shared/ui/SimpleMarkdown';
 
 interface AnalyzeButtonProps {
   label?: string;
@@ -69,7 +70,7 @@ export function AnalyzeButton({ label = 'Анализ', onAnalyze }: AnalyzeButt
           }
         }}
         disabled={loading}
-        className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800/50 text-white rounded-xl font-medium text-sm transition-all"
+        className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 disabled:from-amber-800/50 disabled:to-amber-800/30 text-white rounded-lg font-semibold text-sm transition-all shadow-lg shadow-amber-900/30 border border-amber-500/30 hover:border-amber-400/50"
       >
         {loading ? (
           <>
@@ -80,39 +81,52 @@ export function AnalyzeButton({ label = 'Анализ', onAnalyze }: AnalyzeButt
             Анализирую...
           </>
         ) : (
-          <>
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-            {label}
-          </>
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
         )}
+        {label}
       </button>
 
       {error && !showKeyInput && (
-        <div className="mt-3 p-3 bg-red-900/30 border border-red-700/50 rounded-xl">
+        <div className="mt-3 p-3 bg-red-900/30 border border-red-700/50 rounded-lg">
           <p className="text-red-400 text-xs">{error}</p>
         </div>
       )}
 
       {result && (
-        <div className="mt-4 p-4 bg-bg-secondary border border-border-primary rounded-2xl relative">
-          <button
-            onClick={() => setResult(null)}
-            className="absolute top-2 right-2 text-text-tertiary hover:text-text-primary w-6 h-6 flex items-center justify-center rounded hover:bg-bg-tertiary"
-          >
-            ✕
-          </button>
-          <div className="prose prose-invert prose-sm max-w-none whitespace-pre-wrap text-sm text-text-primary leading-relaxed">
-            {result}
+        <div className="mt-4 relative bg-[#1a1a2e] border-2 border-[#c9a84c]/40 rounded-lg overflow-hidden shadow-2xl shadow-black/50">
+          <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-amber-600/0 via-amber-500/60 to-amber-600/0" />
+          <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
+            style={{
+              backgroundImage: `radial-gradient(circle at 20% 50%, #c9a84c 0%, transparent 50%), radial-gradient(circle at 80% 50%, #c9a84c 0%, transparent 50%)`
+            }}
+          />
+          <div className="relative p-5">
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#c9a84c]/20">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_6px_rgba(201,168,76,0.6)]" />
+                <span className="text-xs font-semibold text-amber-500/80 uppercase tracking-widest">Guild Wars 2 — Анализ</span>
+              </div>
+              <button
+                onClick={() => setResult(null)}
+                className="text-[#c9a84c]/40 hover:text-amber-400 w-6 h-6 flex items-center justify-center rounded hover:bg-amber-900/20 transition-all text-sm"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="text-sm text-text-primary leading-relaxed">
+              <SimpleMarkdown text={result} />
+            </div>
           </div>
         </div>
       )}
 
       {showKeyInput && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => setShowKeyInput(false)}>
-          <div className="bg-bg-primary border border-border-primary rounded-2xl shadow-2xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-text-primary mb-2">DeepSeek API ключ</h3>
+          <div className="bg-[#1a1a2e] border-2 border-[#c9a84c]/40 rounded-lg shadow-2xl shadow-black/50 max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-amber-600/0 via-amber-500/60 to-amber-600/0" />
+            <h3 className="text-lg font-semibold text-amber-400/90 mb-2">DeepSeek API ключ</h3>
             <p className="text-sm text-text-secondary mb-4">
               Введите ваш DeepSeek API ключ для использования AI-анализа. Ключ сохраняется локально в браузере.
             </p>
@@ -121,24 +135,24 @@ export function AnalyzeButton({ label = 'Анализ', onAnalyze }: AnalyzeButt
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               placeholder="sk-..."
-              className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded-xl text-text-primary placeholder:text-text-tertiary text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-1"
+              className="w-full px-3 py-2 bg-[#0d0d1a] border border-[#c9a84c]/30 rounded-lg text-text-primary placeholder:text-text-tertiary text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50"
               autoFocus
               onKeyDown={(e) => { if (e.key === 'Enter') handleSubmitKey(); }}
             />
             {error && (
-              <p className="text-red-400 text-xs mb-2">{error}</p>
+              <p className="text-red-400 text-xs mb-2 mt-1">{error}</p>
             )}
-            <div className="flex items-center justify-end gap-2 mt-3">
+            <div className="flex items-center justify-end gap-2 mt-4">
               <button
                 onClick={() => setShowKeyInput(false)}
-                className="px-3 py-1.5 text-sm text-text-secondary hover:text-text-primary rounded-lg hover:bg-bg-tertiary transition-colors"
+                className="px-3 py-1.5 text-sm text-text-secondary hover:text-text-primary rounded-lg hover:bg-amber-900/20 transition-colors"
               >
                 Отмена
               </button>
               <button
                 onClick={handleSubmitKey}
                 disabled={!apiKey.trim()}
-                className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800/50 text-white rounded-xl text-sm font-medium transition-all"
+                className="px-4 py-1.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 disabled:from-amber-800/50 disabled:to-amber-800/30 text-white rounded-lg text-sm font-semibold transition-all shadow-lg shadow-amber-900/30 border border-amber-500/30"
               >
                 Сохранить и запустить
               </button>

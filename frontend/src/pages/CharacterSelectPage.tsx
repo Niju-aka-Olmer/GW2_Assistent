@@ -170,8 +170,9 @@ function ApiKeyPage({ onKeySet }: { onKeySet: () => void }) {
 
 export function CharacterSelectPage() {
   const { apiKey, clearApiKey } = useAuth();
-  const { data, isLoading, isError, error, refetch } = useCharacters();
   const [showApiForm, setShowApiForm] = useState(!apiKey);
+  const canLoad = !!apiKey && !showApiForm;
+  const { data, isLoading, isError, error, refetch } = useCharacters(canLoad);
 
   const handleKeySet = () => {
     setShowApiForm(false);
