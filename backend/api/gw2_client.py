@@ -190,3 +190,26 @@ async def get_trait_details(trait_ids: list[int]) -> list[dict]:
 
 async def get_specialization_details(spec_ids: list[int]) -> list[dict]:
     return await _get_batch("specializations", spec_ids)
+
+
+async def get_character_render(api_key: str, name: str) -> bytes:
+    from urllib.parse import quote
+    headers = {"Authorization": f"Bearer {api_key}"}
+    async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
+        try:
+            response = await client.get(
+                f"{GW2_API_BASE}/characters/{quote(name)}/render",
+                headers=headers,
+            )
+            response.raise_for_status()
+            return response.content
+        except httpx.HTTPStatusError as e:
+            status = e.response.status_code
+            detail = f"GW2 API render error: {e.response.text}"
+            if status == 401:
+                detail = "Invalid API key"
+            elif status == 404:
+                detail = "Character not found"
+            raise GW2APIError(detail=detail, status_code=status)
+        except httpx.RequestError as e:
+            raise GW2APIError(detail=str(e))

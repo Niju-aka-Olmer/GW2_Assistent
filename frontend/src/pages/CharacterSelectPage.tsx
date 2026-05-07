@@ -1,10 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Layout } from '../shared/ui/Layout';
 import { Card } from '../shared/ui/Card';
 import { Input } from '../shared/ui/Input';
 import { Button } from '../shared/ui/Button';
 import { Spinner } from '../shared/ui/Spinner';
+import { SkeletonGrid } from '../shared/ui/Skeleton';
 import { useAuth } from '../app/providers/AuthProvider';
 import { useCharacters } from '../entities/character/api/getCharacters';
 
@@ -28,17 +29,58 @@ const RACE_RU: Record<string, string> = {
   Sylvari: 'Сильвари',
 };
 
-const PROFESSION_ICONS: Record<string, string> = {
-  Guardian: 'https://render.guildwars2.com/file/610F7C4DC9240B33D1F40E27E02746C15EC20B0D/1770182.png',
-  Warrior: 'https://render.guildwars2.com/file/67275A02E0D71DE9A1A5537C02AE4C6EDF0F17F3/1770183.png',
-  Revenant: 'https://render.guildwars2.com/file/66B1A5403E08B380C7CCDD6413D51332B198DC52/1770184.png',
-  Ranger: 'https://render.guildwars2.com/file/E5E262D7A92BDB1EB1D5ECFA2174D10A7F6B4BFA/1770185.png',
-  Thief: 'https://render.guildwars2.com/file/FA34B74C18044903C7CD37E6090F260B0A2290D3/1770186.png',
-  Engineer: 'https://render.guildwars2.com/file/B615530F3B4167D432B03573CFADD60E5E006C58/1770187.png',
-  Necromancer: 'https://render.guildwars2.com/file/1902F6E6D22FF00FF47680A67A5AE509220B2606/1770188.png',
-  Elementalist: 'https://render.guildwars2.com/file/0F6979F293B1AAA009BF51E7EFC3F3D47929EDBE/1770189.png',
-  Mesmer: 'https://render.guildwars2.com/file/9B7F0CD459334439B720024A539F02AAEBE34C3D/1770190.png',
+const PROFESSION_BG: Record<string, string> = {
+  Guardian: '#3b82f6',
+  Warrior: '#ef4444',
+  Revenant: '#8b5cf6',
+  Ranger: '#22c55e',
+  Thief: '#f59e0b',
+  Engineer: '#f97316',
+  Necromancer: '#6b21a8',
+  Elementalist: '#06b6d4',
+  Mesmer: '#ec4899',
 };
+
+function CharacterRender({ name, apiKey, profession }: { name: string; apiKey: string; profession: string }) {
+  const imgRef = useRef<HTMLImageElement>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  const renderUrl = `/api/characters/${encodeURIComponent(name)}/render?api_key=${encodeURIComponent(apiKey)}`;
+
+  useEffect(() => {
+    setLoadError(false);
+    setLoaded(false);
+  }, [renderUrl]);
+
+  return (
+    <div className="relative w-full aspect-[1/2] max-w-[256px] mx-auto overflow-hidden">
+      {!loaded && !loadError && (
+        <div className="absolute inset-0 flex items-center justify-center bg-bg-tertiary">
+          <Spinner className="w-6 h-6" />
+        </div>
+      )}
+      <img
+        ref={imgRef}
+        src={renderUrl}
+        alt={name}
+        className={`w-full h-full object-contain transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+        onLoad={() => setLoaded(true)}
+        onError={() => { setLoadError(true); setLoaded(true); }}
+      />
+      {loadError && (
+        <div
+          className="absolute inset-0 flex items-center justify-center"
+          style={{ backgroundColor: PROFESSION_BG[profession] || '#374151' }}
+        >
+          <span className="text-[80px] font-bold text-white/30 select-none">
+            {name.charAt(0).toUpperCase()}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function CharacterSelectPage() {
   const { apiKey, setApiKey, clearApiKey } = useAuth();
@@ -96,12 +138,10 @@ export function CharacterSelectPage() {
   if (isLoading) {
     return (
       <Layout>
-        <div className="flex items-center justify-center py-20">
-          <div className="text-center">
-            <Spinner className="w-10 h-10 mx-auto mb-4" />
-            <p className="text-text-secondary">Загрузка персонажей...</p>
-          </div>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold text-text-primary">Мои персонажи</h1>
         </div>
+        <SkeletonGrid count={8} className="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" />
       </Layout>
     );
   }
@@ -141,40 +181,33 @@ export function CharacterSelectPage() {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {characters.map((char) => (
-          <Card key={char.name} className="hover:border-indigo-500/50 transition-all hover:shadow-lg hover:shadow-indigo-500/5">
-            <div className="flex items-start gap-4 mb-4">
-              <div className="relative flex-shrink-0">
-                <img
-                  src={PROFESSION_ICONS[char.profession]}
-                  alt={char.profession}
-                  className="w-16 h-16 rounded-xl bg-bg-tertiary"
-                />
-                <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-bold text-white shadow-lg">
-                  {char.level}
-                </div>
-              </div>
-              <div className="min-w-0 flex-1 pt-1">
+          <Card key={char.name} className="overflow-hidden hover:border-indigo-500/50 transition-all hover:shadow-lg hover:shadow-indigo-500/5 p-0">
+            <CharacterRender name={char.name} apiKey={apiKey} profession={char.profession} />
+            <div className="p-4">
+              <div className="mb-3">
                 <h2 className="text-lg font-semibold text-text-primary truncate">{char.name}</h2>
                 <p className="text-sm text-text-secondary">
                   {PROFESSION_RU[char.profession] || char.profession}
                   {' · '}
                   {RACE_RU[char.race] || char.race}
+                  {' · '}
+                  Ур. {char.level}
                 </p>
               </div>
-            </div>
-            <div className="flex gap-2">
-              <Link to={`/build/${encodeURIComponent(char.name)}`} className="flex-1">
-                <Button variant="secondary" size="sm" className="w-full">
-                  Билд
-                </Button>
-              </Link>
-              <Link to={`/inventory/${encodeURIComponent(char.name)}`} className="flex-1">
-                <Button variant="secondary" size="sm" className="w-full">
-                  Инвентарь
-                </Button>
-              </Link>
+              <div className="flex gap-2">
+                <Link to={`/build/${encodeURIComponent(char.name)}`} className="flex-1">
+                  <Button variant="secondary" size="sm" className="w-full">
+                    Билд
+                  </Button>
+                </Link>
+                <Link to={`/inventory/${encodeURIComponent(char.name)}`} className="flex-1">
+                  <Button variant="secondary" size="sm" className="w-full">
+                    Инвентарь
+                  </Button>
+                </Link>
+              </div>
             </div>
           </Card>
         ))}

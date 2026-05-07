@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Query
+from fastapi.responses import Response
 from typing import Optional
 
 from services.auth_service import verify_api_key
@@ -8,6 +9,7 @@ from api.gw2_client import (
     get_character_build_tab,
     get_character_equipment,
     get_character_inventory,
+    get_character_render,
     get_bank,
     get_item_details,
     get_item_prices,
@@ -151,7 +153,7 @@ async def character_inventory(
     inv_data = await get_character_inventory(api_key, name)
 
     item_ids = []
-    for bag in inv_data:
+    for bag in inv_data.get("bags", []):
         for slot in (bag.get("inventory", []) if isinstance(bag, dict) else []):
             if slot and slot.get("id"):
                 item_ids.append(slot["id"])
@@ -163,7 +165,7 @@ async def character_inventory(
             items_info[item["id"]] = item
 
     bags = []
-    for bag in inv_data:
+    for bag in inv_data.get("bags", []):
         bag_items = []
         for slot in (bag.get("inventory", []) if isinstance(bag, dict) else []):
             if not slot:
@@ -336,7 +338,7 @@ async def deepseek_analyze_inventory(
     else:
         inv_data = await get_character_inventory(api_key, name)
         item_ids = []
-        for bag in inv_data:
+        for bag in inv_data.get("bags", []):
             for slot in (bag.get("inventory", []) if isinstance(bag, dict) else []):
                 if slot and slot.get("id"):
                     item_ids.append(slot["id"])
@@ -348,7 +350,7 @@ async def deepseek_analyze_inventory(
                 items_info[item["id"]] = item
 
         bags = []
-        for bag in inv_data:
+        for bag in inv_data.get("bags", []):
             bag_items = []
             for slot in (bag.get("inventory", []) if isinstance(bag, dict) else []):
                 if not slot:
@@ -385,3 +387,16 @@ async def clear_cache(authorization: Optional[str] = Header(None)):
     item_cache.clear()
     price_cache.clear()
     return {"status": "ok", "message": "Cache cleared"}
+
+
+@router.get("/characters/{name}/render")
+async def character_render(
+    name: str,
+    authorization: Optional[str] = Header(None),
+    api_key: Optional[str] = Query(None),
+):
+    key = api_key or _get_api_key(authorization) if authorization or api_key else None
+    if not key:
+        raise HTTPException(status_code=401, detail="API key required")
+    image_data = await get_character_render(key, name)
+    return Response(content=image_data, media_type="image/png")

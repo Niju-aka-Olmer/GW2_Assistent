@@ -2,20 +2,57 @@ import { useParams } from 'react-router-dom';
 import { useState, useMemo } from 'react';
 import { Layout } from '../shared/ui/Layout';
 import { Card } from '../shared/ui/Card';
-import { Spinner } from '../shared/ui/Spinner';
+import { Skeleton } from '../shared/ui/Skeleton';
 import { Tabs } from '../shared/ui/Tabs';
 import { ItemTooltip } from '../widgets/ItemTooltip/ui/ItemTooltip';
 import { PriceBadge } from '../widgets/PriceBadge/ui/PriceBadge';
+import { AnalyzeButton } from '../widgets/AnalyzeButton';
+import { FilterBar } from '../widgets/FilterBar';
 import { useCharacterInventory } from '../entities/character/api/getCharacters';
 import { useBank } from '../entities/bank/api/getBank';
 import { useItemDetails, useItemPrices } from '../entities/item/api/getItems';
 import { getRarityColor, getRarityBorderClass } from '../entities/item/lib/getRarityColor';
+import { deepseekClient } from '../shared/api/deepseekClient';
 import type { ItemDetails } from '../entities/item/model/types';
 
 const TABS = [
   { id: 'inventory', label: 'Инвентарь' },
   { id: 'bank', label: 'Банк' },
 ];
+
+const RARITY_OPTIONS = [
+  { value: 'Junk', label: 'Мусор' },
+  { value: 'Basic', label: 'Базовый' },
+  { value: 'Fine', label: 'Тонкая' },
+  { value: 'Masterwork', label: 'Отличная' },
+  { value: 'Rare', label: 'Редкая' },
+  { value: 'Exotic', label: 'Экзотическая' },
+  { value: 'Ascended', label: 'Возвышенная' },
+  { value: 'Legendary', label: 'Легендарная' },
+];
+
+const TYPE_RU: Record<string, string> = {
+  Weapon: 'Оружие',
+  Armor: 'Броня',
+  Trinket: 'Аксессуар',
+  Back: 'Спина',
+  Bag: 'Сумка',
+  Consumable: 'Расходник',
+  Trophy: 'Трофей',
+  CraftingMaterial: 'Материал',
+  UpgradeComponent: 'Улучшение',
+  Gizmo: 'Гизмо',
+  MiniPet: 'Мини-питомец',
+  Gathering: 'Инструмент',
+  Container: 'Контейнер',
+  Key: 'Ключ',
+  Recipe: 'Рецепт',
+};
+
+function getItemType(item: { id: number; name: string; icon: string; rarity: string; level: number }, details?: ItemDetails): string {
+  if (details?.type) return details.type;
+  return '';
+}
 
 function buildDisplayItem(item: { id: number; name: string; icon: string; rarity: string; level: number }, details?: ItemDetails): ItemDetails {
   if (details) return details;
@@ -84,6 +121,10 @@ function ItemCell({ item, details, buys, sells }: {
 export function InventoryPage() {
   const { name } = useParams<{ name: string }>();
   const [activeTab, setActiveTab] = useState('inventory');
+
+  const [search, setSearch] = useState('');
+  const [rarityFilter, setRarityFilter] = useState<string[]>([]);
+  const [typeFilter, setTypeFilter] = useState<string[]>([]);
 
   const {
     data: invData,
@@ -155,58 +196,123 @@ export function InventoryPage() {
 
   const currentItems = activeTab === 'inventory' ? inventoryItems : bankItems;
 
+  const typeOptions = useMemo(() => {
+    const types = new Set<string>();
+    for (const item of currentItems) {
+      const t = getItemType(item, detailsMap[item.id]);
+      if (t && TYPE_RU[t]) types.add(t);
+    }
+    return Array.from(types).map(t => ({ value: t, label: TYPE_RU[t] || t }));
+  }, [currentItems, detailsMap]);
+
+  const filteredItems = useMemo(() => {
+    return currentItems.filter((item) => {
+      if (search) {
+        const q = search.toLowerCase();
+        if (!item.name.toLowerCase().includes(q)) return false;
+      }
+      if (rarityFilter.length > 0) {
+        if (!rarityFilter.includes(item.rarity)) return false;
+      }
+      if (typeFilter.length > 0) {
+        const t = getItemType(item, detailsMap[item.id]);
+        if (!t || !typeFilter.includes(t)) return false;
+      }
+      return true;
+    });
+  }, [currentItems, search, rarityFilter, typeFilter, detailsMap]);
+
+  const hasActiveFilters = search || rarityFilter.length > 0 || typeFilter.length > 0;
+
   return (
     <Layout>
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold text-text-primary">
           {activeTab === 'inventory' ? `Инвентарь: ${name}` : 'Банк'}
         </h1>
+        <AnalyzeButton
+          label="AI Анализ"
+          onAnalyze={() => deepseekClient.analyzeInventory(name || '', activeTab as 'inventory' | 'bank').then(r => r.analysis)}
+        />
       </div>
 
       <Tabs tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
 
-      <div className="mt-4">
-        {isLoading && (
-          <div className="flex items-center justify-center py-20">
-            <div className="text-center">
-              <Spinner className="w-10 h-10 mx-auto mb-4" />
-              <p className="text-text-secondary">Загрузка...</p>
+      <div className="mt-4 grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
+        <div className="lg:sticky lg:top-4 lg:self-start">
+          <FilterBar
+            search={search}
+            onSearchChange={setSearch}
+            rarity={rarityFilter}
+            onRarityChange={setRarityFilter}
+            type={typeFilter}
+            onTypeChange={setTypeFilter}
+            rarityOptions={RARITY_OPTIONS}
+            typeOptions={typeOptions}
+            onReset={() => { setSearch(''); setRarityFilter([]); setTypeFilter([]); }}
+            hasActiveFilters={hasActiveFilters}
+          />
+        </div>
+
+        <div>
+          {isLoading && (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <Skeleton className="h-4 w-24" />
+              </div>
+              <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-9 gap-2">
+                {Array.from({ length: 18 }).map((_, i) => (
+                  <div key={i} className="bg-bg-secondary border border-border-primary rounded-lg p-1.5">
+                    <Skeleton className="w-10 h-10 mx-auto mb-1 rounded" />
+                    <Skeleton className="h-3 w-full" />
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {isError && !isLoading && (
-          <Card>
-            <p className="text-red-400">
-              {(error as any)?.response?.data?.detail || 'Ошибка загрузки'}
-            </p>
-          </Card>
-        )}
+          {isError && !isLoading && (
+            <Card>
+              <p className="text-red-400">
+                {(error as any)?.response?.data?.detail || 'Ошибка загрузки'}
+              </p>
+            </Card>
+          )}
 
-        {!isLoading && !isError && currentItems.length === 0 && (
-          <Card>
-            <p className="text-text-secondary text-center py-8">
-              {activeTab === 'inventory' ? 'Инвентарь пуст' : 'Банк пуст'}
-            </p>
-          </Card>
-        )}
+          {!isLoading && !isError && filteredItems.length === 0 && (
+            <Card>
+              <p className="text-text-secondary text-center py-8">
+                {currentItems.length === 0
+                  ? (activeTab === 'inventory' ? 'Инвентарь пуст' : 'Банк пуст')
+                  : 'Ничего не найдено по фильтру'}
+              </p>
+            </Card>
+          )}
 
-        {!isLoading && !isError && currentItems.length > 0 && (
-          <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-2">
-            {currentItems.map((item, idx) => {
-              const price = pricesMap[item.id];
-              return (
-                <ItemCell
-                  key={`${item.id}-${idx}`}
-                  item={item}
-                  details={detailsMap[item.id]}
-                  buys={price?.buys}
-                  sells={price?.sells}
-                />
-              );
-            })}
-          </div>
-        )}
+          {!isLoading && !isError && filteredItems.length > 0 && (
+            <>
+              {hasActiveFilters && (
+                <p className="text-xs text-text-tertiary mb-3">
+                  Показано {filteredItems.length} из {currentItems.length}
+                </p>
+              )}
+              <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-9 gap-2">
+                {filteredItems.map((item, idx) => {
+                  const price = pricesMap[item.id];
+                  return (
+                    <ItemCell
+                      key={`${item.id}-${idx}`}
+                      item={item}
+                      details={detailsMap[item.id]}
+                      buys={price?.buys}
+                      sells={price?.sells}
+                    />
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </Layout>
   );
