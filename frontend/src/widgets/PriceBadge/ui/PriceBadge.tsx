@@ -71,8 +71,8 @@ interface PriceBadgeProps {
 }
 
 export function PriceBadge({ price, buys: directBuys, sells: directSells, count, showEmpty = true }: PriceBadgeProps) {
-  const sellPrice = directSells?.unit_price ?? price?.sells?.unit_price ?? 0;
-  const buyPrice = directBuys?.unit_price ?? price?.buys?.unit_price ?? 0;
+  const sellPrice = directSells?.unit_price ?? (price?.sells?.unit_price as number | undefined) ?? 0;
+  const buyPrice = directBuys?.unit_price ?? (price?.buys?.unit_price as number | undefined) ?? 0;
 
   if (!sellPrice && !buyPrice) return showEmpty ? <span className="text-[10px] text-text-secondary">—</span> : null;
 

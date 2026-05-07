@@ -50,7 +50,7 @@ const TYPE_RU: Record<string, string> = {
   Recipe: 'Рецепт',
 };
 
-function getItemType(item: { id: number; name: string; icon: string; rarity: string; level: number }, details?: ItemDetails): string {
+function getItemType(_item: { id: number; name: string; icon: string; rarity: string; level: number }, details?: ItemDetails): string {
   if (details?.type) return details.type;
   return '';
 }
@@ -172,9 +172,18 @@ export function InventoryPage() {
     return map;
   }, [detailsData]);
 
+  interface PriceEntry {
+    buys: { unit_price: number } | null;
+    sells: { unit_price: number } | null;
+  }
   const pricesMap = useMemo(() => {
-    const map: Record<number, { buys: { unit_price: number } | null; sells: { unit_price: number } | null }> = {};
-    pricesData?.prices?.forEach(p => { map[p.id] = { buys: p.buys, sells: p.sells }; });
+    const map: Record<number, PriceEntry> = {};
+    pricesData?.prices?.forEach(p => {
+      map[p.id] = {
+        buys: p.buys as unknown as { unit_price: number } | null,
+        sells: p.sells as unknown as { unit_price: number } | null,
+      };
+    });
     return map;
   }, [pricesData]);
 
@@ -184,7 +193,7 @@ export function InventoryPage() {
 
   const inventoryItems = useMemo(() => {
     if (!invData?.bags) return [];
-    const items: typeof invData.bags[0][number][] = [];
+    const items: NonNullable<typeof invData.bags[0][number]>[] = [];
     for (const bag of invData.bags) {
       if (!bag) continue;
       for (const item of bag) {
@@ -227,7 +236,7 @@ export function InventoryPage() {
     });
   }, [currentItems, search, rarityFilter, typeFilter, detailsMap]);
 
-  const hasActiveFilters = search || rarityFilter.length > 0 || typeFilter.length > 0;
+  const hasActiveFilters = !!search || rarityFilter.length > 0 || typeFilter.length > 0;
 
   return (
     <Layout>

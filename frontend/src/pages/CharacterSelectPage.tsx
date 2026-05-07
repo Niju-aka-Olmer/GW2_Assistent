@@ -1,9 +1,14 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useCharacters } from '../entities/character/api/getCharacters';
 import { Layout } from '../shared/ui/Layout';
 import { Card } from '../shared/ui/Card';
+import { Button } from '../shared/ui/Button';
+import { Input } from '../shared/ui/Input';
 import { SkeletonGrid } from '../shared/ui/Skeleton';
 import { CoinBadge } from '../widgets/PriceBadge/ui/PriceBadge';
+import { useAuth } from '../app/providers/AuthProvider';
+import { gw2Client } from '../shared/api/gw2Client';
 import type { CharacterSummary } from '../entities/character/model/types';
 
 const PROFESSION_ICONS: Record<string, string> = {
@@ -96,12 +101,117 @@ function CharacterCard({ character }: { character: CharacterSummary }) {
   );
 }
 
+function ApiKeyPage({ onKeySet }: { onKeySet: () => void }) {
+  const [key, setKey] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { setApiKey, clearApiKey } = useAuth();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = key.trim();
+    if (!trimmed) {
+      setError('Введите API ключ');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      setApiKey(trimmed);
+
+      const result = await gw2Client.auth();
+      if (result.status === 'ok') {
+        onKeySet();
+      } else {
+        setError('Ошибка проверки ключа: ' + JSON.stringify(result));
+        clearApiKey();
+      }
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail || err?.message || 'Ошибка подключения';
+      setError(msg);
+      clearApiKey();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-4">
+      <Card className="w-full max-w-md p-8">
+        <div className="text-center mb-6">
+          <div className="text-5xl mb-4">⚔️</div>
+          <h1 className="text-2xl font-bold text-text-primary">GW2 Assist</h1>
+          <p className="text-text-secondary mt-2 text-sm">
+            Введите ваш API ключ от Guild Wars 2
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Input
+              type="password"
+              placeholder="GW2 API ключ..."
+              value={key}
+              onChange={(e) => { setKey(e.target.value); setError(''); }}
+              className="w-full text-center"
+              autoFocus
+            />
+            {error && (
+              <p className="text-red-400 text-sm mt-2 text-center">{error}</p>
+            )}
+          </div>
+
+          <Button
+            type="submit"
+            disabled={loading || !key.trim()}
+            className="w-full"
+          >
+            {loading ? 'Проверка...' : 'Подключиться'}
+          </Button>
+        </form>
+
+        <p className="text-text-tertiary text-xs text-center mt-4">
+          Ключ можно получить на{' '}
+          <a
+            href="https://account.arena.net/applications"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-indigo-400 hover:text-indigo-300 underline"
+          >
+            account.arena.net
+          </a>
+        </p>
+      </Card>
+    </div>
+  );
+}
+
 export function CharacterSelectPage() {
-  const { data, isLoading, isError, error } = useCharacters();
+  const { apiKey, clearApiKey } = useAuth();
+  const { data, isLoading, isError, error, refetch } = useCharacters();
+  const [showApiForm, setShowApiForm] = useState(!apiKey);
+
+  const handleKeySet = () => {
+    setShowApiForm(false);
+  };
+
+  if (showApiForm || !apiKey) {
+    return <ApiKeyPage onKeySet={handleKeySet} />;
+  }
 
   return (
     <Layout>
-      <h1 className="text-2xl font-bold text-text-primary mb-6">Выберите персонажа</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-text-primary">Выберите персонажа</h1>
+        <button
+          onClick={clearApiKey}
+          className="text-sm text-text-tertiary hover:text-red-400 transition-colors px-3 py-1 rounded border border-border-primary hover:border-red-400"
+        >
+          Выйти
+        </button>
+      </div>
 
       {isLoading && <SkeletonGrid count={6} />}
 
@@ -111,6 +221,9 @@ export function CharacterSelectPage() {
           <p className="text-sm text-text-secondary mt-1">
             {(error as any)?.response?.data?.detail || String(error)}
           </p>
+          <Button onClick={() => refetch()} className="mt-3">
+            Повторить
+          </Button>
         </Card>
       )}
 

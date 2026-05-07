@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import clsx from 'clsx';
 
 export interface FilterOption {
@@ -24,17 +23,6 @@ interface FilterBarProps {
   onReset: () => void;
   hasActiveFilters: boolean;
 }
-
-const RARITY_COLORS: Record<string, string> = {
-  Junk: 'text-gray-500 border-gray-500',
-  Basic: 'text-gray-400 border-gray-400',
-  Fine: 'text-blue-400 border-blue-400',
-  Masterwork: 'text-green-400 border-green-400',
-  Rare: 'text-yellow-400 border-yellow-400',
-  Exotic: 'text-orange-400 border-orange-400',
-  Ascended: 'text-pink-400 border-pink-400',
-  Legendary: 'text-purple-400 border-purple-400',
-};
 
 function FilterChip({
   label,

@@ -2,7 +2,6 @@ import { useParams } from 'react-router-dom';
 import { useMemo, useState } from 'react';
 import { Layout } from '../shared/ui/Layout';
 import { Card } from '../shared/ui/Card';
-import { Spinner } from '../shared/ui/Spinner';
 import { Skeleton } from '../shared/ui/Skeleton';
 import { ItemTooltip } from '../widgets/ItemTooltip/ui/ItemTooltip';
 import { ItemModal } from '../widgets/ItemModal';
@@ -64,7 +63,7 @@ interface EquipmentItem {
   slot: string;
   rarity: string;
   level: number;
-  stats?: Record<string, number>;
+  stats: Record<string, unknown> | null;
   infusions?: number[];
   upgrades?: number[];
 }
@@ -314,7 +313,7 @@ export function BuildPage() {
           <BuildEquipmentGrid
             equipment={sortedEquipment}
             detailsMap={detailsMap}
-            onItemClick={(item, slot) => setModalItem({ item, slot: { slot: slot.slot, stats: slot.stats } })}
+            onItemClick={(item, slot) => setModalItem({ item, slot: { slot: slot.slot, stats: slot.stats as unknown as Record<string, number> | undefined } })}
           />
         </div>
       )}
