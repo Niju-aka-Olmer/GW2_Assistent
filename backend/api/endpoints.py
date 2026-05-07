@@ -19,7 +19,7 @@ from api.gw2_client import (
 )
 from api.deepseek_client import analyze as deepseek_analyze
 from services.build_analyzer import analyze_build_text
-from services.inventory_analyzer import analyze_inventory_text, bank_analysis_prompt
+from services.inventory_analyzer import analyze_inventory_text, INVENTORY_INSTRUCTIONS
 from cache.memory_cache import character_cache, item_cache, price_cache
 from models.character import CharacterSummary
 from utils.errors import AuthError
@@ -362,7 +362,15 @@ async def deepseek_analyze_inventory(
 
     if target == "bank":
         bank_data = await get_bank(api_key)
-        prompt = bank_analysis_prompt(bank_data)
+        prompt = f"[АНАЛИЗ БАНКА]\n\nСодержимое банка:\n"
+        bank_has_items = False
+        for slot in bank_data:
+            if slot and slot.get("id"):
+                bank_has_items = True
+                prompt += f"  - {slot.get('name', f'ID:{slot[\"id\"]}')} (x{slot.get('count', 1)}, редкость: {slot.get('rarity', 'N/A')}, уровень: {slot.get('level', 0)})\n"
+        if not bank_has_items:
+            prompt += "  Банк пуст.\n"
+        prompt += f"\n\n---\n\n{INVENTORY_INSTRUCTIONS}"
     else:
         inv_data = await get_character_inventory(api_key, name)
         item_ids = []
