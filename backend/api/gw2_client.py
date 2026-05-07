@@ -84,45 +84,49 @@ async def get_characters(api_key: str) -> list[str]:
 
 
 async def get_character_core(api_key: str, name: str) -> dict:
+    from urllib.parse import quote
     cache_key = f"character_core:{api_key}:{name}"
     cached = character_cache.get(cache_key)
     if cached:
         return cached
 
-    data = await _get(f"characters/{name}/core", api_key=api_key)
+    data = await _get(f"characters/{quote(name)}/core", api_key=api_key)
     character_cache.set(cache_key, data)
     return data
 
 
 async def get_character_build_tab(api_key: str, name: str) -> dict:
+    from urllib.parse import quote
     cache_key = f"character_build:{api_key}:{name}"
     cached = character_cache.get(cache_key)
     if cached:
         return cached
 
-    data = await _get(f"characters/{name}/build", api_key=api_key)
+    data = await _get(f"characters/{quote(name)}/buildtabs/active", api_key=api_key)
     character_cache.set(cache_key, data)
     return data
 
 
 async def get_character_equipment(api_key: str, name: str) -> dict:
+    from urllib.parse import quote
     cache_key = f"character_equipment:{api_key}:{name}"
     cached = character_cache.get(cache_key)
     if cached:
         return cached
 
-    data = await _get(f"characters/{name}/equipment", api_key=api_key)
+    data = await _get(f"characters/{quote(name)}/equipment", api_key=api_key)
     character_cache.set(cache_key, data)
     return data
 
 
 async def get_character_inventory(api_key: str, name: str) -> list:
+    from urllib.parse import quote
     cache_key = f"character_inventory:{api_key}:{name}"
     cached = character_cache.get(cache_key)
     if cached:
         return cached
 
-    data = await _get(f"characters/{name}/inventory", api_key=api_key)
+    data = await _get(f"characters/{quote(name)}/inventory", api_key=api_key)
     character_cache.set(cache_key, data)
     return data
 

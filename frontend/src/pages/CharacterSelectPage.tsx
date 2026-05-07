@@ -144,24 +144,24 @@ export function CharacterSelectPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {characters.map((char) => (
           <Card key={char.name} className="hover:border-indigo-500/50 transition-all hover:shadow-lg hover:shadow-indigo-500/5">
-            <div className="flex items-start gap-3 mb-4">
-              <img
-                src={PROFESSION_ICONS[char.profession]}
-                alt={char.profession}
-                className="w-10 h-10 rounded-lg bg-bg-tertiary flex-shrink-0"
-              />
-              <div className="min-w-0 flex-1">
+            <div className="flex items-start gap-4 mb-4">
+              <div className="relative flex-shrink-0">
+                <img
+                  src={PROFESSION_ICONS[char.profession]}
+                  alt={char.profession}
+                  className="w-16 h-16 rounded-xl bg-bg-tertiary"
+                />
+                <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-bold text-white shadow-lg">
+                  {char.level}
+                </div>
+              </div>
+              <div className="min-w-0 flex-1 pt-1">
                 <h2 className="text-lg font-semibold text-text-primary truncate">{char.name}</h2>
                 <p className="text-sm text-text-secondary">
                   {PROFESSION_RU[char.profession] || char.profession}
                   {' · '}
                   {RACE_RU[char.race] || char.race}
-                  {' · '}
-                  {char.gender === 'Male' ? 'Мужской' : 'Женский'}
                 </p>
-              </div>
-              <div className="flex-shrink-0">
-                <span className="text-2xl font-bold text-indigo-400">{char.level}</span>
               </div>
             </div>
             <div className="flex gap-2">
