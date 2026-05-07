@@ -1,0 +1,31 @@
+import { apiClient } from './apiClient';
+
+interface DeepseekAnalyzeResponse {
+  character: string;
+  analysis: string;
+}
+
+interface DeepseekInventoryResponse {
+  character: string;
+  target: string;
+  analysis: string;
+}
+
+export const deepseekClient = {
+  analyzeBuild: async (name: string, deepseekApiKey?: string) => {
+    const { data } = await apiClient.post<DeepseekAnalyzeResponse>('/deepseek/analyze-build', {
+      name,
+      ...(deepseekApiKey ? { deepseek_api_key: deepseekApiKey } : {}),
+    });
+    return data;
+  },
+
+  analyzeInventory: async (name: string, target: 'inventory' | 'bank', deepseekApiKey?: string) => {
+    const { data } = await apiClient.post<DeepseekInventoryResponse>('/deepseek/analyze-inventory', {
+      name,
+      target,
+      ...(deepseekApiKey ? { deepseek_api_key: deepseekApiKey } : {}),
+    });
+    return data;
+  },
+};

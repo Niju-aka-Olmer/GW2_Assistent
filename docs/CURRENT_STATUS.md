@@ -1,8 +1,8 @@
 # GW2 Assistant — Current Status
 
-## Текущий статус проекта: Фронтенд общие компоненты готовы
+## Текущий статус проекта: Сущности и API клиенты готовы
 
-Реализован полный бэкенд (GW2 API + DeepSeek AI) и фронтенд (UI-kit, роутинг, навигация).
+Реализован полный бэкенд (GW2 API + DeepSeek AI) и фронтенд (UI-kit, роутинг, сущности, API-интеграция, виджеты).
 Развёрнуто на ВМ: http://192.168.1.180:3000 (фронтенд + API прокси через один порт).
 
 ## Что сделано
@@ -62,20 +62,31 @@
 - [x] Страницы-заглушки: CharacterSelectPage (ввод ключа), BuildPage, InventoryPage, RecommendationsPage
 - [x] Тёмная тема по умолчанию
 
+### Фронтенд — сущности и API (Этап 5)
+- [x] Типы персонажа: CharacterSummary, CharacterListResponse, Specialization, Skill, BuildResponse, EquipmentItem, EquipmentResponse, InventoryItem, InventoryResponse
+- [x] Типы предмета: ItemDetails, ItemDetailsListResponse
+- [x] Типы билда: DeepSeekResponse (result + cached)
+- [x] Типы цен: PriceData (id, buys, sells), PriceResponse
+- [x] gw2Client.ts: методы auth(), getCharacters(), getCharacterBuild(), getCharacterInventory(), getBank(), getItemPrices(), getItemDetails(), clearCache()
+- [x] deepseekClient.ts: методы analyzeBuild(), analyzeInventory() с опциональным DeepSeek API ключом
+- [x] useCharacters() — список персонажей (staleTime 5 мин)
+- [x] useCharacterBuild(name) — билд персонажа (staleTime 5 мин, enabled: !!name)
+- [x] useCharacterInventory(name) — инвентарь (staleTime 5 мин, enabled: !!name)
+- [x] useItemDetails(itemIds) — детали предметов (staleTime 1 час, enabled: length > 0)
+- [x] useItemPrices(itemIds) — цены предметов (staleTime 5 мин, enabled: length > 0)
+- [x] useBank() — банк аккаунта (staleTime 2 мин, 2 retries)
+- [x] getRarityColor() + getRarityBorderClass() — цвета редкости (Junk → Legendary)
+- [x] getItemIconUrl() — URL иконки предмета с размером
+- [x] PriceBadge + formatCoin — отображение цен (золото/серебро/медь)
+- [x] ItemTooltip + rusAttributes + formatStats — подсказка с русскими атрибутами
+
 ## Что нужно сделать
 
-### Этап 5: Фронтенд — сущности и API
-- [ ] Создать types для персонажа, предмета, билда, цены
-- [ ] Создать API клиенты (gw2Client, deepseekClient)
-- [ ] Настроить React Query
-
 ### Этап 6: Фронтенд — страницы
-- [ ] Страница выбора персонажа (CharacterSelectPage)
-- [ ] Страница билда (BuildPage)
-- [ ] Страница инвентаря и банка (InventoryPage)
-- [ ] Страница AI-рекомендаций (RecommendationsPage)
-- [ ] Виджет ItemTooltip
-- [ ] Виджет PriceBadge
+- [ ] Интегрировать CharacterSelectPage с useCharacters() — загрузка и отображение списка персонажей
+- [ ] Реализовать BuildPage — отображение билда, специализаций, экипировки с иконками предметов
+- [ ] Реализовать InventoryPage — инвентарь персонажа + банк с ItemTooltip и PriceBadge
+- [ ] Реализовать RecommendationsPage — интеграция с deepseekClient для AI-анализа
 
 ### Этап 7: Фичи и доработки
 - [ ] Фича analyzeBuild (AI-анализ билда)

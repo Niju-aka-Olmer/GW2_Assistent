@@ -1,0 +1,110 @@
+import { apiClient } from './apiClient';
+import type { CharacterListResponse } from '../../entities/character/model/types';
+import type { ItemDetailsListResponse } from '../../entities/item/model/types';
+import type { PriceResponse } from '../../entities/price/model/types';
+
+interface AuthResponse {
+  status: string;
+  name?: string;
+  permissions?: string[];
+}
+
+interface BuildResponse {
+  name: string;
+  profession: string;
+  specializations: {
+    id: number;
+    name: string;
+    icon: string;
+    background: string;
+    traits: number[];
+    selected_traits: (number | null)[];
+  }[];
+  equipment: {
+    id: number;
+    name: string;
+    icon: string;
+    slot: string;
+    rarity: string;
+    level: number;
+    stats: Record<string, unknown> | null;
+    infusions: number[];
+    upgrades: number[];
+  }[];
+}
+
+interface InventoryResponse {
+  name: string;
+  bags: ({
+    id: number;
+    name: string;
+    icon: string;
+    rarity: string;
+    level: number;
+    count: number;
+    binding: string | null;
+  } | null)[][];
+}
+
+interface BankResponse {
+  bank: ({
+    id: number;
+    name: string;
+    icon: string;
+    rarity: string;
+    level: number;
+    count: number;
+    binding: string | null;
+  } | null)[];
+}
+
+interface CacheClearResponse {
+  status: string;
+  message: string;
+}
+
+export const gw2Client = {
+  auth: async () => {
+    const { data } = await apiClient.post<AuthResponse>('/auth');
+    return data;
+  },
+
+  getCharacters: async () => {
+    const { data } = await apiClient.get<CharacterListResponse>('/characters');
+    return data;
+  },
+
+  getCharacterBuild: async (name: string) => {
+    const { data } = await apiClient.get<BuildResponse>(`/characters/${encodeURIComponent(name)}/build`);
+    return data;
+  },
+
+  getCharacterInventory: async (name: string) => {
+    const { data } = await apiClient.get<InventoryResponse>(`/characters/${encodeURIComponent(name)}/inventory`);
+    return data;
+  },
+
+  getBank: async () => {
+    const { data } = await apiClient.get<BankResponse>('/account/bank');
+    return data;
+  },
+
+  getItemPrices: async (itemIds: number[]) => {
+    const { data } = await apiClient.get<PriceResponse>('/items/prices', {
+      params: { item_ids: itemIds.join(',') },
+    });
+    return data;
+  },
+
+  getItemDetails: async (itemIds: number[]) => {
+    const { data } = await apiClient.get<ItemDetailsListResponse>('/items/details', {
+      params: { item_ids: itemIds.join(',') },
+    });
+    return data;
+  },
+
+  clearCache: async () => {
+    const { data } = await apiClient.post<CacheClearResponse>('/cache/clear');
+    return data;
+  },
+};
