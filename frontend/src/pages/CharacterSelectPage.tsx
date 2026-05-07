@@ -44,38 +44,18 @@ const PROFESSION_RU: Record<string, string> = {
 };
 
 function CharacterCard({ character }: { character: CharacterSummary }) {
-  const renderUrl = `/api/characters/${encodeURIComponent(character.name)}/render?api_key=${encodeURIComponent(sessionStorage.getItem('gw2_api_key') || '')}`;
-
   return (
     <Link
-      to={`/characters/${encodeURIComponent(character.name)}/build`}
+      to={`/build/${encodeURIComponent(character.name)}`}
       className="block group"
     >
       <Card className="flex flex-col items-center text-center p-4 transition-all hover:scale-[1.02] hover:shadow-xl">
-        <div className="relative w-32 h-64 bg-bg-tertiary rounded-lg overflow-hidden mb-3 flex items-center justify-center">
-          {character.name ? (
-            <img
-              src={renderUrl}
-              alt={character.name}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.style.display = 'none';
-                const parent = target.parentElement;
-                if (parent) {
-                  const fallback = parent.querySelector('.fallback-render');
-                  if (fallback) (fallback as HTMLElement).style.display = 'flex';
-                }
-              }}
-            />
-          ) : null}
-          <div className="fallback-render w-full h-full flex items-center justify-center bg-bg-tertiary" style={{ display: character.name ? 'none' : 'flex' }}>
-            <span className="text-4xl opacity-30">
-              {PROFESSION_ICONS[character.profession] ? (
-                <img src={PROFESSION_ICONS[character.profession]} alt={character.profession} className="w-16 h-16 opacity-30" />
-              ) : '?'}
-            </span>
-          </div>
+        <div className="relative w-24 h-24 bg-bg-tertiary rounded-full overflow-hidden mb-3 flex items-center justify-center">
+          {PROFESSION_ICONS[character.profession] ? (
+            <img src={PROFESSION_ICONS[character.profession]} alt={character.profession} className="w-20 h-20" />
+          ) : (
+            <span className="text-4xl">?</span>
+          )}
         </div>
 
         <h2 className="font-bold text-lg text-text-primary group-hover:text-indigo-400 transition-colors">
