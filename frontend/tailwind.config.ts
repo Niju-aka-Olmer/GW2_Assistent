@@ -23,6 +23,15 @@ export default {
           secondary: 'var(--border-secondary)',
           focus: 'var(--border-focus)',
         },
+        gw2: {
+          gold: 'var(--gw2-gold)',
+          'gold-bright': 'var(--gw2-gold-bright)',
+          'gold-dim': 'var(--gw2-gold-dim)',
+          red: 'var(--gw2-red)',
+          'red-bright': 'var(--gw2-red-bright)',
+          blue: 'var(--gw2-blue)',
+          green: 'var(--gw2-green)',
+        },
         rarity: {
           junk: 'var(--rarity-junk)',
           basic: 'var(--rarity-basic)',

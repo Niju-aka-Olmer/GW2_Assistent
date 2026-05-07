@@ -284,10 +284,14 @@ export function BuildPage() {
     <Layout>
       <CharacterTabs name={name || ''} />
       <div className="mb-8">
-        <div className="flex items-center justify-between">
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-text-primary">{buildData.name}</h1>
-            <p className="text-text-secondary">{buildData.profession}</p>
+            <h1 className="text-2xl font-bold">
+              <span className="bg-gradient-to-r from-[#f3c623] via-[#c9a84c] to-[#a68a3c] bg-clip-text text-transparent">
+                {buildData.name}
+              </span>
+            </h1>
+            <p className="text-text-secondary text-sm mt-1">{buildData.profession}</p>
           </div>
           <AnalyzeButton
             label="AI Анализ билда"
@@ -298,7 +302,12 @@ export function BuildPage() {
 
       {buildData.specializations && buildData.specializations.length > 0 && (
         <div className="mb-8">
-          <h2 className="text-lg font-semibold text-text-primary mb-3">Специализации</h2>
+          <h2 className="text-lg font-semibold text-[#c9a84c] mb-3 flex items-center gap-2">
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" />
+            </svg>
+            Специализации
+          </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {buildData.specializations.map((spec) => (
               <Card key={spec.id} className="overflow-hidden">
@@ -326,7 +335,12 @@ export function BuildPage() {
 
       {sortedEquipment.length > 0 && (
         <div>
-          <h2 className="text-lg font-semibold text-text-primary mb-4">Экипировка</h2>
+          <h2 className="text-lg font-semibold text-[#c9a84c] mb-4 flex items-center gap-2">
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="7" width="18" height="14" rx="2" /><path d="M7 7V5a2 2 0 012-2h6a2 2 0 012 2v2" />
+            </svg>
+            Экипировка
+          </h2>
           <BuildEquipmentGrid
             equipment={sortedEquipment}
             detailsMap={detailsMap}

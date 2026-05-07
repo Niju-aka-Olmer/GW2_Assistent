@@ -49,8 +49,8 @@ function CharacterCard({ character }: { character: CharacterSummary }) {
       to={`/build/${encodeURIComponent(character.name)}`}
       className="block group"
     >
-      <Card className="flex items-center gap-4 p-4 transition-all hover:scale-[1.02] hover:shadow-xl">
-        <div className="flex-shrink-0 w-16 h-16 bg-bg-tertiary rounded-xl overflow-hidden flex items-center justify-center">
+      <Card className="flex items-center gap-4 p-4 transition-all hover:scale-[1.02] hover:shadow-xl hover:border-[#c9a84c]/30">
+        <div className="flex-shrink-0 w-16 h-16 bg-[#1e212d] rounded-xl overflow-hidden flex items-center justify-center border border-[#2d3246]">
           {PROFESSION_ICONS[character.profession] ? (
             <img src={PROFESSION_ICONS[character.profession]} alt={character.profession} className="w-14 h-14" />
           ) : (
@@ -59,15 +59,16 @@ function CharacterCard({ character }: { character: CharacterSummary }) {
         </div>
 
         <div className="flex-1 min-w-0">
-          <h2 className="font-bold text-lg text-text-primary group-hover:text-indigo-400 transition-colors truncate">
+          <h2 className="font-bold text-lg text-text-primary group-hover:text-[#f3c623] transition-colors truncate">
             {character.name}
           </h2>
 
           <p className="text-sm text-text-secondary">
             {RACE_RU[character.race] || character.race}
-            <span className="text-text-tertiary ml-1">•</span>
-            <span className="text-text-tertiary ml-1">{PROFESSION_RU[character.profession] || character.profession}</span>
-            <span className="text-text-tertiary ml-1">• Ур. {character.level}</span>
+            <span className="text-text-tertiary mx-1">•</span>
+            <span>{PROFESSION_RU[character.profession] || character.profession}</span>
+            <span className="text-text-tertiary mx-1">•</span>
+            <span>Ур. {character.level}</span>
           </p>
 
           {character.coins > 0 && (
@@ -118,11 +119,30 @@ function ApiKeyPage({ onKeySet }: { onKeySet: () => void }) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-4">
-      <Card className="w-full max-w-md p-8">
+    <div className="min-h-screen flex items-center justify-center p-4 relative z-10">
+      <Card variant="gw2" className="w-full max-w-md p-8">
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#f3c623] to-transparent" />
         <div className="text-center mb-6">
-          <div className="text-5xl mb-4">⚔️</div>
-          <h1 className="text-2xl font-bold text-text-primary">GW2 Assist</h1>
+          <div className="text-5xl mb-4">
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className="inline-block">
+              <path d="M24 4L6 18V38H42V18L24 4Z" stroke="url(#gw2-gold-grad)" strokeWidth="2" fill="none" />
+              <path d="M24 14L16 22V34H32V22L24 14Z" stroke="url(#gw2-gold-grad)" strokeWidth="1.5" fill="none" />
+              <line x1="24" y1="4" x2="24" y2="14" stroke="url(#gw2-gold-grad)" strokeWidth="1.5" />
+              <line x1="6" y1="18" x2="16" y2="22" stroke="url(#gw2-gold-grad)" strokeWidth="1.5" />
+              <line x1="42" y1="18" x2="32" y2="22" stroke="url(#gw2-gold-grad)" strokeWidth="1.5" />
+              <defs>
+                <linearGradient id="gw2-gold-grad" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#f3c623" />
+                  <stop offset="100%" stopColor="#a68a3c" />
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold">
+            <span className="bg-gradient-to-r from-[#f3c623] via-[#c9a84c] to-[#a68a3c] bg-clip-text text-transparent">
+              GW2 Assist
+            </span>
+          </h1>
           <p className="text-text-secondary mt-2 text-sm">
             Введите ваш API ключ от Guild Wars 2
           </p>
@@ -145,6 +165,7 @@ function ApiKeyPage({ onKeySet }: { onKeySet: () => void }) {
 
           <Button
             type="submit"
+            variant="gold"
             disabled={loading || !key.trim()}
             className="w-full"
           >
@@ -158,7 +179,7 @@ function ApiKeyPage({ onKeySet }: { onKeySet: () => void }) {
             href="https://account.arena.net/applications"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-indigo-400 hover:text-indigo-300 underline"
+            className="text-[#c9a84c] hover:text-[#f3c623] underline underline-offset-2 transition-colors"
           >
             account.arena.net
           </a>
@@ -185,10 +206,17 @@ export function CharacterSelectPage() {
   return (
     <Layout>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-text-primary">Выберите персонажа</h1>
+        <div>
+          <h1 className="text-2xl font-bold">
+            <span className="bg-gradient-to-r from-[#f3c623] via-[#c9a84c] to-[#a68a3c] bg-clip-text text-transparent">
+              Выберите персонажа
+            </span>
+          </h1>
+          <p className="text-text-secondary text-sm mt-1">Ваши персонажи Guild Wars 2</p>
+        </div>
         <button
           onClick={clearApiKey}
-          className="text-sm text-text-tertiary hover:text-red-400 transition-colors px-3 py-1 rounded border border-border-primary hover:border-red-400"
+          className="text-sm text-text-tertiary hover:text-[#e74c3c] transition-colors px-3 py-1 rounded border border-border-primary hover:border-red-700/30"
         >
           Выйти
         </button>

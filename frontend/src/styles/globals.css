@@ -3,11 +3,11 @@
 @tailwind utilities;
 
 :root[data-theme="dark"] {
-  --bg-primary: #0f1117;
-  --bg-secondary: #1a1d28;
-  --bg-tertiary: #242838;
-  --bg-elevated: #2d3246;
-  --bg-hover: #363b52;
+  --bg-primary: #0a0b0f;
+  --bg-secondary: #15171f;
+  --bg-tertiary: #1e212d;
+  --bg-elevated: #282c3b;
+  --bg-hover: #323750;
 
   --text-primary: #e8eaf0;
   --text-secondary: #9ca3b4;
@@ -16,7 +16,15 @@
 
   --border-primary: #2d3246;
   --border-secondary: #363b52;
-  --border-focus: #6366f1;
+  --border-focus: #c9a84c;
+
+  --gw2-gold: #c9a84c;
+  --gw2-gold-bright: #f3c623;
+  --gw2-gold-dim: #a68a3c;
+  --gw2-red: #c0392b;
+  --gw2-red-bright: #e74c3c;
+  --gw2-blue: #3498db;
+  --gw2-green: #2ecc71;
 
   --rarity-junk: #6b7284;
   --rarity-basic: #d1d5db;
@@ -31,26 +39,34 @@
   --coin-silver: #94a3b8;
   --coin-copper: #d97706;
 
-  --tooltip-bg: #1a1d28;
-  --tooltip-border: #363b52;
-  --tooltip-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --tooltip-bg: #15171f;
+  --tooltip-border: #2d3246;
+  --tooltip-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
 }
 
 :root[data-theme="light"] {
-  --bg-primary: #f8f9fc;
+  --bg-primary: #f4f5f8;
   --bg-secondary: #ffffff;
-  --bg-tertiary: #f1f3f8;
+  --bg-tertiary: #ecedf2;
   --bg-elevated: #ffffff;
-  --bg-hover: #e5e8f0;
+  --bg-hover: #e0e1e8;
 
   --text-primary: #111827;
   --text-secondary: #4b5563;
   --text-tertiary: #6b7280;
   --text-muted: #9ca3af;
 
-  --border-primary: #e5e7eb;
-  --border-secondary: #d1d5db;
-  --border-focus: #6366f1;
+  --border-primary: #d1d5db;
+  --border-secondary: #c0c4d0;
+  --border-focus: #c9a84c;
+
+  --gw2-gold: #b8942e;
+  --gw2-gold-bright: #d4a843;
+  --gw2-gold-dim: #8a7022;
+  --gw2-red: #c0392b;
+  --gw2-red-bright: #e74c3c;
+  --gw2-blue: #2980b9;
+  --gw2-green: #27ae60;
 
   --rarity-junk: #9ca3af;
   --rarity-basic: #6b7280;
@@ -66,11 +82,62 @@
   --coin-copper: #d97706;
 
   --tooltip-bg: #ffffff;
-  --tooltip-border: #e5e7eb;
-  --tooltip-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  --tooltip-border: #d1d5db;
+  --tooltip-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
 }
 
 body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
+  background-image:
+    linear-gradient(rgba(201, 168, 76, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(201, 168, 76, 0.015) 1px, transparent 1px);
+  background-size: 60px 60px;
+  background-position: center center;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background:
+    radial-gradient(ellipse at 20% 20%, rgba(201, 168, 76, 0.03) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 80%, rgba(52, 152, 219, 0.02) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c9a84c' fill-opacity='0.03'%3E%3Cpolygon points='30 0 60 17.5 60 42.5 30 60 0 42.5 0 17.5' transform='translate(30,30) scale(1.2) translate(-30,-30)'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  background-size: 120px 120px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--gw2-gold-dim) var(--bg-tertiary);
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--gw2-gold-dim);
+  border-radius: 4px;
+  border: 2px solid var(--bg-tertiary);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--gw2-gold);
 }

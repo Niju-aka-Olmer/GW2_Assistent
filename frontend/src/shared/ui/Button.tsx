@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'gold';
   size?: 'sm' | 'md' | 'lg';
 }
 
@@ -15,8 +15,10 @@ export function Button({
   return (
     <button
       className={clsx(
-        'rounded-lg font-medium transition-colors disabled:opacity-50',
+        'rounded-lg font-medium transition-all disabled:opacity-50',
         {
+          'bg-gradient-to-r from-[#c9a84c] to-[#a68a3c] text-[#0a0b0f] hover:from-[#f3c623] hover:to-[#c9a84c] shadow-lg shadow-[#c9a84c]/20 hover:shadow-[#f3c623]/30 border border-[#f3c623]/30':
+            variant === 'gold',
           'bg-indigo-600 text-white hover:bg-indigo-500': variant === 'primary',
           'bg-bg-tertiary text-text-primary hover:bg-bg-hover': variant === 'secondary',
           'text-text-secondary hover:text-text-primary': variant === 'ghost',

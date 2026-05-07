@@ -29,7 +29,7 @@ function parseMarkdown(text: string): React.ReactNode[] {
     if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
       const content = renderInline(trimmed.substring(2));
       listItems.push(
-        <li key={index} className="text-text-primary text-sm">
+        <li key={index} className="text-text-primary text-sm leading-relaxed">
           {content}
         </li>
       );
@@ -40,7 +40,7 @@ function parseMarkdown(text: string): React.ReactNode[] {
 
     if (trimmed.startsWith('**') && trimmed.endsWith('**') && trimmed.length > 4) {
       elements.push(
-        <h3 key={index} className="font-bold text-indigo-300 text-sm mt-3 mb-1">
+        <h3 key={index} className="font-bold text-amber-300 text-sm mt-3 mb-1.5 uppercase tracking-wider">
           {renderInline(trimmed.slice(2, -2))}
         </h3>
       );
@@ -48,7 +48,7 @@ function parseMarkdown(text: string): React.ReactNode[] {
     }
 
     elements.push(
-      <p key={index} className="mb-1 last:mb-0 text-sm">
+      <p key={index} className="mb-1.5 last:mb-0 text-sm leading-relaxed">
         {renderInline(trimmed)}
       </p>
     );
@@ -60,7 +60,7 @@ function parseMarkdown(text: string): React.ReactNode[] {
 
 function renderInline(text: string): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
-  const regex = /(\*\*(.+?)\*\*)|(\*(.+?)\*)|\[(.+?)\]\((.+?)\)/g;
+  const regex = /(!\[([^\]]*)\]\(([^)]+)\))|(\*\*(.+?)\*\*)|(\*(.+?)\*)|\[(.+?)\]\((.+?)\)/g;
   let lastIndex = 0;
   let key = 0;
 
@@ -71,14 +71,19 @@ function renderInline(text: string): React.ReactNode[] {
     }
 
     if (match[1]) {
-      parts.push(<strong key={key++} className="font-semibold text-text-primary">{match[2]}</strong>);
-    } else if (match[3]) {
-      parts.push(<em key={key++} className="italic text-text-secondary">{match[4]}</em>);
-    } else if (match[5]) {
       parts.push(
-        <a key={key++} href={match[6]} target="_blank" rel="noopener noreferrer"
-           className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2 transition-colors">
-          {match[5]}
+        <img key={key++} src={match[3]} alt={match[2]}
+             className="inline-block w-5 h-5 align-middle mr-1" />
+      );
+    } else if (match[4]) {
+      parts.push(<strong key={key++} className="font-semibold text-text-primary">{match[5]}</strong>);
+    } else if (match[6]) {
+      parts.push(<em key={key++} className="italic text-text-secondary">{match[7]}</em>);
+    } else if (match[8]) {
+      parts.push(
+        <a key={key++} href={match[9]} target="_blank" rel="noopener noreferrer"
+           className="text-amber-400 hover:text-amber-300 underline underline-offset-2 transition-colors">
+          {match[8]}
         </a>
       );
     }

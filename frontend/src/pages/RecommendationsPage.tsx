@@ -60,12 +60,19 @@ export function RecommendationsPage() {
 
   return (
     <Layout>
-      <h1 className="text-2xl font-bold text-text-primary mb-6">AI-рекомендации</h1>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold">
+          <span className="bg-gradient-to-r from-[#f3c623] via-[#c9a84c] to-[#a68a3c] bg-clip-text text-transparent">
+            AI-рекомендации
+          </span>
+        </h1>
+        <p className="text-text-secondary text-sm mt-1">Анализ билда и инвентаря с DeepSeek AI</p>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1 space-y-4">
           <Card>
-            <h2 className="text-lg font-semibold text-text-primary mb-3">Параметры</h2>
+            <h2 className="text-lg font-semibold text-[#c9a84c] mb-3">Параметры</h2>
 
             <div className="space-y-4">
               <div>
@@ -79,7 +86,7 @@ export function RecommendationsPage() {
                   </div>
                 ) : (
                   <select
-                    className="w-full bg-bg-secondary border border-border-primary rounded-lg px-3 py-2 text-text-primary text-sm focus:outline-none focus:border-indigo-500"
+                    className="w-full bg-bg-secondary border border-border-primary rounded-lg px-3 py-2 text-text-primary text-sm focus:outline-none focus:border-[#c9a84c]"
                     value={selectedChar}
                     onChange={(e) => setSelectedChar(e.target.value)}
                   >
@@ -93,7 +100,7 @@ export function RecommendationsPage() {
                 )}
               </div>
 
-              <Tabs tabs={ANALYSIS_TABS} activeTab={analysisTab} onChange={setAnalysisTab} />
+              <Tabs tabs={ANALYSIS_TABS} activeTab={analysisTab} onChange={setAnalysisTab} variant="gw2" />
 
               {analysisTab === 'inventory' && (
                 <div>
@@ -120,7 +127,7 @@ export function RecommendationsPage() {
 
               <div>
                 <button
-                  className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+                  className="text-sm text-[#c9a84c] hover:text-[#f3c623] transition-colors"
                   onClick={() => setShowKeyInput(!showKeyInput)}
                 >
                   {showKeyInput ? 'Скрыть' : 'Указать свой'} DeepSeek API ключ
@@ -128,7 +135,7 @@ export function RecommendationsPage() {
                 {showKeyInput && (
                   <input
                     type="password"
-                    className="w-full mt-2 bg-bg-secondary border border-border-primary rounded-lg px-3 py-2 text-text-primary text-sm focus:outline-none focus:border-indigo-500"
+                    className="w-full mt-2 bg-bg-secondary border border-border-primary rounded-lg px-3 py-2 text-text-primary text-sm focus:outline-none focus:border-[#c9a84c]"
                     placeholder="DeepSeek API Key (опционально)"
                     value={deepseekKey}
                     onChange={(e) => setDeepseekKey(e.target.value)}
@@ -137,6 +144,7 @@ export function RecommendationsPage() {
               </div>
 
               <Button
+                variant="gold"
                 className="w-full"
                 disabled={!selectedChar || isAnalyzing}
                 onClick={handleAnalyze}
@@ -148,8 +156,9 @@ export function RecommendationsPage() {
         </div>
 
         <div className="lg:col-span-2">
-          <Card>
-            <h2 className="text-lg font-semibold text-text-primary mb-3">Результат</h2>
+          <Card variant="gw2">
+            <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#f3c623]/40 to-transparent" />
+            <h2 className="text-lg font-semibold text-[#c9a84c] mb-3">Результат</h2>
 
             {!result && !error && !isAnalyzing && (
               <p className="text-text-secondary text-center py-8">

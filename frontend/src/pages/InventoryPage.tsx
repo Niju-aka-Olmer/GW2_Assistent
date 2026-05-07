@@ -243,17 +243,24 @@ export function InventoryPage() {
   return (
     <Layout>
       <CharacterTabs name={name || ''} />
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold text-text-primary">
-          {activeTab === 'inventory' ? `Инвентарь: ${name}` : 'Банк'}
-        </h1>
+      <div className="flex items-start justify-between mb-4 gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">
+            <span className="bg-gradient-to-r from-[#f3c623] via-[#c9a84c] to-[#a68a3c] bg-clip-text text-transparent">
+              {activeTab === 'inventory' ? name : 'Банк'}
+            </span>
+          </h1>
+          <p className="text-text-secondary text-sm mt-1">
+            {activeTab === 'inventory' ? 'Инвентарь персонажа' : 'Общий банк'}
+          </p>
+        </div>
         <AnalyzeButton
           label="AI Анализ"
           onAnalyze={(apiKey) => deepseekClient.analyzeInventory(name || '', activeTab as 'inventory' | 'bank', apiKey).then(r => r.analysis)}
         />
       </div>
 
-      <Tabs tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
+      <Tabs tabs={TABS} activeTab={activeTab} onChange={setActiveTab} variant="gw2" />
 
       <div className="mt-4 grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
         <div className="lg:sticky lg:top-4 lg:self-start">
