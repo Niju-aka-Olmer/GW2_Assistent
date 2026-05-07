@@ -6,6 +6,7 @@ export interface CharacterSummary {
   level: number;
   age: number;
   created: string;
+  coins: number;
 }
 
 export interface CharacterListResponse {

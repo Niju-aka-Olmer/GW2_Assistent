@@ -27,6 +27,33 @@ from utils.errors import AuthError
 router = APIRouter(prefix="/api")
 
 
+def _strip_gw2_tags(text: Optional[str]) -> Optional[str]:
+    """Remove GW2 chat markup tags like <c=@flavor>...</c> from text."""
+    if not text:
+        return text
+    import re
+    text = re.sub(r'<c?=@?\w*>[^<]*</c>', '', text)
+    text = re.sub(r'<c?=@?\w*/>', '', text)
+    text = re.sub(r'<br[^>]*>', '\n', text)
+    text = text.strip()
+    return text
+
+
+def _sanitize_item(item: dict) -> dict:
+    """Clean up item data by stripping GW2 markup tags and extracting attributes."""
+    if "description" in item:
+        item["description"] = _strip_gw2_tags(item.get("description"))
+    details = item.get("details") or {}
+    infix = details.get("infix_upgrade") or {}
+    attrs_list = infix.get("attributes") or []
+    if attrs_list:
+        item["attributes"] = {a["attribute"]: a["modifier"] for a in attrs_list}
+    item["defense"] = details.get("defense")
+    item["weight_class"] = details.get("weight_class")
+    item["item_type"] = details.get("type")
+    return item
+
+
 @router.get("/health")
 async def api_health():
     return {"status": "ok", "version": "1.0.0"}
@@ -65,6 +92,7 @@ async def characters_endpoint(authorization: Optional[str] = Header(None)):
                 level=core.get("level", 0),
                 age=core.get("age", 0),
                 created=core.get("created", ""),
+                coins=core.get("coins", 0),
             )
         )
 
@@ -117,7 +145,7 @@ async def character_build(
     if equipment_item_ids:
         items_raw = await get_item_details(equipment_item_ids)
         for item in items_raw:
-            equipment_details[item["id"]] = item
+            equipment_details[item["id"]] = _sanitize_item(item)
 
     equipment = []
     for eq in equipment_data.get("equipment", []):
@@ -162,7 +190,7 @@ async def character_inventory(
     if item_ids:
         items_raw = await get_item_details(list(set(item_ids)))
         for item in items_raw:
-            items_info[item["id"]] = item
+            items_info[item["id"]] = _sanitize_item(item)
 
     bags = []
     for bag in inv_data.get("bags", []):
@@ -198,7 +226,7 @@ async def account_bank(authorization: Optional[str] = Header(None)):
     if item_ids:
         items_raw = await get_item_details(list(set(item_ids)))
         for item in items_raw:
-            items_info[item["id"]] = item
+            items_info[item["id"]] = _sanitize_item(item)
 
     bank_slots = []
     for slot in bank_data:
@@ -246,7 +274,7 @@ async def item_details(
         return {"items": []}
 
     items = await get_item_details(ids)
-    return {"items": items}
+    return {"items": [_sanitize_item(it) for it in items]}
 
 
 @router.post("/deepseek/analyze-build")
@@ -289,7 +317,7 @@ async def deepseek_analyze_build(
     if equipment_item_ids:
         items_raw = await get_item_details(equipment_item_ids)
         for item in items_raw:
-            equipment_details[item["id"]] = item
+            equipment_details[item["id"]] = _sanitize_item(item)
 
     equipment = []
     for eq in equipment_data.get("equipment", []):
@@ -347,7 +375,7 @@ async def deepseek_analyze_inventory(
         if item_ids:
             items_raw = await get_item_details(list(set(item_ids)))
             for item in items_raw:
-                items_info[item["id"]] = item
+                items_info[item["id"]] = _sanitize_item(item)
 
         bags = []
         for bag in inv_data.get("bags", []):

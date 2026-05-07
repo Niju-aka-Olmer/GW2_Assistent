@@ -9,6 +9,10 @@ export interface ItemDetails {
   vendor_value: number | null;
   flags: string[];
   chat_link: string;
+  attributes?: Record<string, number> | null;
+  defense?: number | null;
+  weight_class?: string | null;
+  item_type?: string | null;
 }
 
 export interface ItemDetailsListResponse {

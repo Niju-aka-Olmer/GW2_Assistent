@@ -6,6 +6,7 @@ import { Skeleton } from '../shared/ui/Skeleton';
 import { Tabs } from '../shared/ui/Tabs';
 import { ItemTooltip } from '../widgets/ItemTooltip/ui/ItemTooltip';
 import { PriceBadge } from '../widgets/PriceBadge/ui/PriceBadge';
+import { ItemModal } from '../widgets/ItemModal';
 import { AnalyzeButton } from '../widgets/AnalyzeButton';
 import { FilterBar } from '../widgets/FilterBar';
 import { useCharacterInventory } from '../entities/character/api/getCharacters';
@@ -70,18 +71,20 @@ function buildDisplayItem(item: { id: number; name: string; icon: string; rarity
   };
 }
 
-function ItemCell({ item, details, buys, sells }: {
+function ItemCell({ item, details, buys, sells, onItemClick }: {
   item: { id: number; name: string; icon: string; rarity: string; level: number; count?: number };
   details?: ItemDetails;
   buys?: { unit_price: number } | null;
   sells?: { unit_price: number } | null;
+  onItemClick?: (item: ItemDetails) => void;
 }) {
   const displayItem = buildDisplayItem(item, details);
 
   return (
     <ItemTooltip item={displayItem}>
       <div
-        className={`relative bg-bg-secondary border-2 rounded-lg p-1.5 text-center transition-all hover:bg-bg-hover hover:scale-105 ${getRarityBorderClass(item.rarity)}`}
+        className={`relative bg-bg-secondary border-2 rounded-lg p-1.5 text-center transition-all hover:bg-bg-hover hover:scale-105 cursor-pointer ${getRarityBorderClass(item.rarity)}`}
+        onClick={() => onItemClick?.(displayItem)}
       >
         <div className="w-10 h-10 mx-auto bg-bg-tertiary rounded flex items-center justify-center">
           <img src={item.icon} alt={item.name} className="w-9 h-9" />
@@ -98,7 +101,7 @@ function ItemCell({ item, details, buys, sells }: {
         >
           {item.name}
         </p>
-        {item.count && item.count > 1 && buys && (
+        {item.count && item.count > 1 && (buys || sells) && (
           <PriceBadge
             buys={buys}
             sells={sells}
@@ -125,6 +128,8 @@ export function InventoryPage() {
   const [search, setSearch] = useState('');
   const [rarityFilter, setRarityFilter] = useState<string[]>([]);
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
+
+  const [selectedItem, setSelectedItem] = useState<ItemDetails | null>(null);
 
   const {
     data: invData,
@@ -232,7 +237,7 @@ export function InventoryPage() {
         </h1>
         <AnalyzeButton
           label="AI Анализ"
-          onAnalyze={() => deepseekClient.analyzeInventory(name || '', activeTab as 'inventory' | 'bank').then(r => r.analysis)}
+          onAnalyze={(apiKey) => deepseekClient.analyzeInventory(name || '', activeTab as 'inventory' | 'bank', apiKey).then(r => r.analysis)}
         />
       </div>
 
@@ -306,6 +311,7 @@ export function InventoryPage() {
                       details={detailsMap[item.id]}
                       buys={price?.buys}
                       sells={price?.sells}
+                      onItemClick={(fullItem) => setSelectedItem(fullItem)}
                     />
                   );
                 })}
@@ -314,6 +320,13 @@ export function InventoryPage() {
           )}
         </div>
       </div>
+
+      {selectedItem && (
+        <ItemModal
+          item={selectedItem}
+          onClose={() => setSelectedItem(null)}
+        />
+      )}
     </Layout>
   );
 }

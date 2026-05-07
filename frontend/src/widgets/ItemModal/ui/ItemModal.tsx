@@ -1,9 +1,10 @@
 import type { ItemDetails } from '../../../entities/item/model/types';
 import { formatStats } from '../../ItemTooltip';
+import { RUS_ATTRIBUTES } from '../../ItemTooltip/lib/rusAttributes';
 import { getRarityColor } from '../../../entities/item/lib/getRarityColor';
 import { getItemIconUrl } from '../../../entities/item/lib/getItemIconUrl';
 import { getItemTypeRu } from '../lib/getTypeRu';
-import { formatCoin } from '../../PriceBadge/lib/formatCoin';
+import { CoinBadge } from '../../PriceBadge/ui/PriceBadge';
 import { useEffect, useCallback } from 'react';
 
 interface SlotInfo {
@@ -49,8 +50,24 @@ export function ItemModal({ item, slot, onClose }: ItemModalProps) {
   const rarityColor = getRarityColor(item.rarity);
   const iconUrl = getItemIconUrl(item.icon, 128);
 
-  const stats = formatStats(slot?.stats);
-  const hasStats = stats.length > 0;
+  const slotStats = formatStats(slot?.stats || null);
+  const itemAttrs = item.attributes
+    ? Object.entries(item.attributes)
+        .filter(([, v]) => v > 0)
+        .map(([k, v]) => ({
+          label: RUS_ATTRIBUTES[k] || k,
+          value: v,
+        }))
+    : [];
+
+  const allAttributes = [...itemAttrs];
+  for (const s of slotStats) {
+    if (!allAttributes.find(a => a.label === s.label)) {
+      allAttributes.push(s);
+    }
+  }
+
+  const hasAttributes = allAttributes.length > 0;
 
   let flagsText = '';
   if (item.flags) {
@@ -59,6 +76,10 @@ export function ItemModal({ item, slot, onClose }: ItemModalProps) {
       .filter(Boolean);
     if (knownFlags.length > 0) flagsText = knownFlags.join(', ');
   }
+
+  const typeInfo = item.weight_class
+    ? `${getItemTypeRu(item.type)} (${item.weight_class === 'Heavy' ? 'Тяжёлая' : item.weight_class === 'Medium' ? 'Средняя' : item.weight_class === 'Light' ? 'Лёгкая' : item.weight_class})`
+    : getItemTypeRu(item.type);
 
   return (
     <div
@@ -93,7 +114,7 @@ export function ItemModal({ item, slot, onClose }: ItemModalProps) {
                   ✕
                 </button>
               </div>
-              <p className="text-sm text-text-secondary mt-1">{getItemTypeRu(item.type)}</p>
+              <p className="text-sm text-text-secondary mt-1">{typeInfo}</p>
               {item.level > 0 && (
                 <p className="text-sm text-text-secondary">
                   Требуется уровень: <span className="text-indigo-400 font-medium">{item.level}</span>
@@ -110,16 +131,24 @@ export function ItemModal({ item, slot, onClose }: ItemModalProps) {
             </div>
           )}
 
-          {hasStats && (
+          {item.defense && item.defense > 0 && (
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-xs text-text-secondary">Защита:</span>
+              <span className="text-sm font-medium text-text-primary">{item.defense}</span>
+            </div>
+          )}
+
+          {hasAttributes && (
             <div className="mb-4">
               <h3 className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">Характеристики</h3>
-              <div className="flex flex-wrap gap-1.5">
-                {stats.map((s) => (
+              <div className="grid grid-cols-2 gap-1.5">
+                {allAttributes.map((s) => (
                   <span
                     key={s.label}
-                    className="px-2.5 py-1 bg-indigo-500/10 text-indigo-300 text-xs font-medium rounded-lg"
+                    className="px-2.5 py-1 bg-indigo-500/10 text-indigo-300 text-xs font-medium rounded-lg inline-flex items-center justify-between"
                   >
-                    +{s.value} {s.label}
+                    <span>{s.label}</span>
+                    <span className="ml-2 text-indigo-200">+{s.value}</span>
                   </span>
                 ))}
               </div>
@@ -138,7 +167,7 @@ export function ItemModal({ item, slot, onClose }: ItemModalProps) {
           {item.vendor_value != null && item.vendor_value > 0 && (
             <div className="mb-3 flex items-center gap-2">
               <span className="text-xs text-text-secondary">Продажа торговцу:</span>
-              <span className="text-sm font-medium text-yellow-400">{formatCoin(item.vendor_value)}</span>
+              <CoinBadge value={item.vendor_value} />
             </div>
           )}
 
@@ -150,8 +179,11 @@ export function ItemModal({ item, slot, onClose }: ItemModalProps) {
           )}
 
           {item.chat_link && (
-            <div className="pt-3 border-t border-border-primary">
-              <p className="text-xs text-text-secondary font-mono select-all">{item.chat_link}</p>
+            <div className="pt-3 border-t border-border-primary mt-3">
+              <p className="text-xs text-text-secondary mb-1">Чат-ссылка (для передачи в игре):</p>
+              <p className="text-xs text-text-tertiary font-mono select-all bg-bg-tertiary px-2 py-1 rounded">
+                {item.chat_link}
+              </p>
             </div>
           )}
         </div>

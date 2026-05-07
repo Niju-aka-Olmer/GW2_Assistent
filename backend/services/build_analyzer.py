@@ -1,65 +1,83 @@
-def format_equipment_for_prompt(equipment: list[dict]) -> str:
-    if not equipment:
-        return "  (нет данных об экипировке)"
+INSTRUCTIONS = """Ты — эксперт по игре Guild Wars 2. Твоя задача — проанализировать билд персонажа и дать подробные, понятные даже новичку рекомендации.
 
-    lines = []
-    for eq in equipment:
-        stats_str = ""
-        if eq.get("stats"):
-            attrs = eq["stats"].get("attributes", {})
-            stats_parts = [f"{k}={v}" for k, v in attrs.items()]
-            stats_str = f" [{', '.join(stats_parts)}]"
-        lines.append(
-            f"  - {eq.get('name', '?')} "
-            f"({eq.get('rarity', '?')}, lvl {eq.get('level', '?')})"
-            f"{stats_str}"
-            f" [слот: {eq.get('slot', '?')}]"
-        )
-    return "\n".join(lines)
+Формат ответа (строго следуй этому формату, используй эмодзи-иконки):
+
+🏆 **ОБЩАЯ ОЦЕНКА БИЛДА**
+[Краткая оценка: насколько билд хорош для PvE/открытого мира/рейдов/фракталов. Укажи примерный уровень силы: 🔥 Отлично / ✅ Хорошо / ⚠️ Средне / ❌ Слабо]
+
+👤 **ПРОФЕССИЯ И РОЛЬ**
+Профессия: [название]
+Роль: [DPS/Support/Healer/ hybrid] 🎯/🛡️/💚/⚡
+Рекомендуемая роль в группе: [описание]
+
+📊 **ХАРАКТЕРИСТИКИ (АТРИБУТЫ)**
+Перечисли все ключевые характеристики с иконками:
+⚔️ Сила (Power): [значение] — [объяснение простыми словами]
+🎯 Точность (Precision): [значение] — [объяснение]
+💥 Крит. урон (Ferocity): [значение] — [объяснение]
+🛡️ Броня (Toughness): [значение] — [объяснение]
+❤️ Здоровье (Vitality): [значение] — [объяснение]
+✨ Концентрация (Concentration): [значение] — [объяснение]
+🔮 Синергия (Condition Damage): [значение] — [объяснение]
+⏱️ Длительность эффектов (Expertise): [значение] — [объяснение]
+
+🧩 **СПЕЦИАЛИЗАЦИИ**
+[Для каждой специализации напиши:
+- Название и почему она выбрана
+- Как сочетается с другими специализациями
+- Совет по ротации (для новичков)]
+
+🛡️ **АНАЛИЗ ЭКИПИРОВКИ**
+[Для каждой части экипировки напиши:
+- Название предмета и его качество (редкость)
+- Подходит ли для выбранной роли
+- Стоит ли заменить на что-то более доступное]
+Раздели по категориям:
+• Броня (шлем, наплечники, куртка, перчатки, штаны, ботинки)
+• Аксессуары (кольца, аксессуары, амулет, спина)
+• Оружие (основное/дополнительное/двуручное)
+• Подводное оружие
+
+💡 **СОВЕТЫ ПО УЛУЧШЕНИЮ (ДЛЯ НОВИЧКОВ)**
+[Напиши 3-5 конкретных, понятных советов:
+1. Что сделать в первую очередь (самое важное)
+2. Что можно улучшить с небольшими затратами
+3. На что обратить внимание при выборе экипировки
+4. Какие характеристики важнее всего для этой профессии
+5. Где взять хорошую экипировку (стартовые сеты)
+
+⚠️ **НА ЧТО ОБРАТИТЬ ВНИМАНИЕ**
+[Если есть проблемы в билде, укажи их здесь. Если всё хорошо — похвали.]
+
+ВАЖНО: Пиши на русском языке, простым и понятным языком. Избегай сложных терминов без объяснения. Используй эмодзи для наглядности. Будь дружелюбным и полезным."""
 
 
-def format_specializations_for_prompt(specializations: list[dict]) -> str:
-    if not specializations:
-        return "  (нет специализаций)"
-
-    lines = []
+def analyze_build_text(name: str, profession: str, specializations: list, equipment: list) -> str:
+    prompt = f"[АНАЛИЗ БИЛДА ПЕРСОНАЖА]\n\nИмя персонажа: {name}\nПрофессия: {profession}\n\n"
+    prompt += "Специализации:\n"
     for spec in specializations:
-        traits = spec.get("selected_traits", [])
-        trait_ids = ", ".join(str(t) for t in traits if t)
-        lines.append(
-            f"  - {spec.get('name', '?')} "
-            f"(трейты: {trait_ids or 'не выбраны'})"
-            f" [иконка: {spec.get('icon', '')}]"
-        )
-    return "\n".join(lines)
+        prompt += f"- {spec.get('name', 'Неизвестно')} (линия {spec.get('specialization_id', '?')})\n"
+        for trait_id in spec.get("traits", []):
+            prompt += f"  - Черта: {trait_id}\n"
 
+    prompt += "\nЭкипировка:\n"
+    slot_names = {
+        "Helm": "Шлем", "Shoulders": "Наплечники", "Coat": "Куртка",
+        "Gloves": "Перчатки", "Leggings": "Штаны", "Boots": "Ботинки",
+        "Ring1": "Кольцо 1", "Ring2": "Кольцо 2", "Accessory1": "Аксессуар 1",
+        "Accessory2": "Аксессуар 2", "Amulet": "Амулет", "Backpack": "Спина",
+        "WeaponA1": "Оружие 1 рука (основное)", "WeaponA2": "Оружие 2 рука (основное)",
+        "WeaponB1": "Оружие 1 рука (доп.)", "WeaponB2": "Оружие 2 рука (доп.)",
+        "WeaponAquatic1": "Подводное оружие 1", "WeaponAquatic2": "Подводное оружие 2",
+    }
 
-def build_analysis_prompt(
-    name: str,
-    profession: str,
-    specializations: list[dict],
-    equipment: list[dict],
-) -> str:
-    spec_text = format_specializations_for_prompt(specializations)
-    equip_text = format_equipment_for_prompt(equipment)
+    for eq in equipment:
+        slot_ru = slot_names.get(eq.get("slot", ""), eq.get("slot", ""))
+        prompt += f"\n[{slot_ru}] {eq.get('name', 'Неизвестно')} (редкость: {eq.get('rarity', 'N/A')}, уровень: {eq.get('level', 0)})"
+        stats = eq.get("stats", {}) or {}
+        if stats:
+            stats_str = ", ".join([f"{k}: {v}" for k, v in stats.items()])
+            prompt += f"\n   Характеристики: {stats_str}"
 
-    return (
-        f"Проанализируй билд персонажа {name} ({profession}) в Guild Wars 2.\n\n"
-        f"### Специализации:\n{spec_text}\n\n"
-        f"### Экипировка:\n{equip_text}\n\n"
-        "Дай оценку билду по следующим пунктам:\n"
-        "1. Общая оценка эффективности билда (PvE открытый мир/фракталы/рейды)\n"
-        "2. Атрибуты — соответствуют ли выбранной роли (DPS/Support/Condi)?\n"
-        "3. Рекомендации по улучшению (какие предметы/специализации заменить)\n"
-        "4. Сильные и слабые стороны текущей сборки\n\n"
-        "Ответ напиши на русском языке, кратко и по делу."
-    )
-
-
-def analyze_build_text(
-    name: str,
-    profession: str,
-    specializations: list[dict],
-    equipment: list[dict],
-) -> str:
-    return build_analysis_prompt(name, profession, specializations, equipment)
+    prompt += f"\n\n---\n\n{INSTRUCTIONS}"
+    return prompt

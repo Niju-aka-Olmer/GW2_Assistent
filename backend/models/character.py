@@ -10,6 +10,7 @@ class CharacterSummary(BaseModel):
     level: int
     age: int
     created: str
+    coins: int = 0
 
 
 class CharacterListResponse(BaseModel):

@@ -1,217 +1,134 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useCharacters } from '../entities/character/api/getCharacters';
 import { Layout } from '../shared/ui/Layout';
 import { Card } from '../shared/ui/Card';
-import { Input } from '../shared/ui/Input';
-import { Button } from '../shared/ui/Button';
-import { Spinner } from '../shared/ui/Spinner';
 import { SkeletonGrid } from '../shared/ui/Skeleton';
-import { useAuth } from '../app/providers/AuthProvider';
-import { useCharacters } from '../entities/character/api/getCharacters';
+import { CoinBadge } from '../widgets/PriceBadge/ui/PriceBadge';
+import type { CharacterSummary } from '../entities/character/model/types';
 
-const PROFESSION_RU: Record<string, string> = {
-  Guardian: 'Страж',
-  Warrior: 'Воин',
-  Revenant: 'Ревенант',
-  Ranger: 'Рейнджер',
-  Thief: 'Вор',
-  Engineer: 'Инженер',
-  Necromancer: 'Некромант',
-  Elementalist: 'Элементалист',
-  Mesmer: 'Месмер',
+const PROFESSION_ICONS: Record<string, string> = {
+  Guardian: 'https://render.guildwars2.com/file/60E15CD70B0D02D53BA0C70ADB17077A90184259/156637.png',
+  Warrior: 'https://render.guildwars2.com/file/BD718D0C0B909F3107035E04EAB5D31C4B5AFB57/156638.png',
+  Engineer: 'https://render.guildwars2.com/file/0AFA0EA806E7B77FF0F3C9F6D45039A7B80F096E/156636.png',
+  Ranger: 'https://render.guildwars2.com/file/036C983816CD36EC6D65B83EAEEB09D7AD0F7719/156635.png',
+  Thief: 'https://render.guildwars2.com/file/0EC50A0C9304B87D4F4AAE99AE71F6DB350D0A5C/156634.png',
+  Elementalist: 'https://render.guildwars2.com/file/6B0872D0ACD29BBBFA789B2595C74A4F48CF0564/156633.png',
+  Mesmer: 'https://render.guildwars2.com/file/38AF76AA1AEB0FD7DD0A7EB2E05AF2020D35542A/156632.png',
+  Necromancer: 'https://render.guildwars2.com/file/F4B50E47F3B9C0E843F70E0DBBF0EAA04C3F0B0C/156631.png',
+  Revenant: 'https://render.guildwars2.com/file/EF0431093BE00E62C3FC2359167DAA0A2A467B4A/1012719.png',
 };
 
 const RACE_RU: Record<string, string> = {
-  Human: 'Человек',
-  Charr: 'Чарр',
   Asura: 'Асура',
+  Charr: 'Чарр',
+  Human: 'Человек',
   Norn: 'Норн',
   Sylvari: 'Сильвари',
 };
 
-const PROFESSION_BG: Record<string, string> = {
-  Guardian: '#3b82f6',
-  Warrior: '#ef4444',
-  Revenant: '#8b5cf6',
-  Ranger: '#22c55e',
-  Thief: '#f59e0b',
-  Engineer: '#f97316',
-  Necromancer: '#6b21a8',
-  Elementalist: '#06b6d4',
-  Mesmer: '#ec4899',
+const PROFESSION_RU: Record<string, string> = {
+  Guardian: 'Страж',
+  Warrior: 'Воин',
+  Engineer: 'Инженер',
+  Ranger: 'Рейнджер',
+  Thief: 'Вор',
+  Elementalist: 'Элементалист',
+  Mesmer: 'Мечница',
+  Necromancer: 'Некромант',
+  Revenant: 'Ревенант',
 };
 
-function CharacterRender({ name, apiKey, profession }: { name: string; apiKey: string; profession: string }) {
-  const imgRef = useRef<HTMLImageElement>(null);
-  const [loadError, setLoadError] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-
-  const renderUrl = `/api/characters/${encodeURIComponent(name)}/render?api_key=${encodeURIComponent(apiKey)}`;
-
-  useEffect(() => {
-    setLoadError(false);
-    setLoaded(false);
-  }, [renderUrl]);
+function CharacterCard({ character }: { character: CharacterSummary }) {
+  const renderUrl = `/api/characters/${encodeURIComponent(character.name)}/render?api_key=${encodeURIComponent(sessionStorage.getItem('gw2_api_key') || '')}`;
 
   return (
-    <div className="relative w-full aspect-[1/2] max-w-[256px] mx-auto overflow-hidden">
-      {!loaded && !loadError && (
-        <div className="absolute inset-0 flex items-center justify-center bg-bg-tertiary">
-          <Spinner className="w-6 h-6" />
+    <Link
+      to={`/characters/${encodeURIComponent(character.name)}/build`}
+      className="block group"
+    >
+      <Card className="flex flex-col items-center text-center p-4 transition-all hover:scale-[1.02] hover:shadow-xl">
+        <div className="relative w-32 h-64 bg-bg-tertiary rounded-lg overflow-hidden mb-3 flex items-center justify-center">
+          {character.name ? (
+            <img
+              src={renderUrl}
+              alt={character.name}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+                const parent = target.parentElement;
+                if (parent) {
+                  const fallback = parent.querySelector('.fallback-render');
+                  if (fallback) (fallback as HTMLElement).style.display = 'flex';
+                }
+              }}
+            />
+          ) : null}
+          <div className="fallback-render w-full h-full flex items-center justify-center bg-bg-tertiary" style={{ display: character.name ? 'none' : 'flex' }}>
+            <span className="text-4xl opacity-30">
+              {PROFESSION_ICONS[character.profession] ? (
+                <img src={PROFESSION_ICONS[character.profession]} alt={character.profession} className="w-16 h-16 opacity-30" />
+              ) : '?'}
+            </span>
+          </div>
         </div>
-      )}
-      <img
-        ref={imgRef}
-        src={renderUrl}
-        alt={name}
-        className={`w-full h-full object-contain transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
-        onLoad={() => setLoaded(true)}
-        onError={() => { setLoadError(true); setLoaded(true); }}
-      />
-      {loadError && (
-        <div
-          className="absolute inset-0 flex items-center justify-center"
-          style={{ backgroundColor: PROFESSION_BG[profession] || '#374151' }}
-        >
-          <span className="text-[80px] font-bold text-white/30 select-none">
-            {name.charAt(0).toUpperCase()}
-          </span>
-        </div>
-      )}
-    </div>
+
+        <h2 className="font-bold text-lg text-text-primary group-hover:text-indigo-400 transition-colors">
+          {character.name}
+        </h2>
+
+        <p className="text-sm text-text-secondary mt-1">
+          {RACE_RU[character.race] || character.race}
+        </p>
+
+        <p className="text-sm text-text-secondary">
+          {PROFESSION_RU[character.profession] || character.profession}
+          <span className="text-text-tertiary ml-1">• Ур. {character.level}</span>
+        </p>
+
+        {character.coins > 0 && (
+          <div className="mt-2 pt-2 border-t border-border-primary w-full flex items-center justify-center">
+            <CoinBadge value={character.coins} />
+          </div>
+        )}
+      </Card>
+    </Link>
   );
 }
 
 export function CharacterSelectPage() {
-  const { apiKey, setApiKey, clearApiKey } = useAuth();
-  const [keyInput, setKeyInput] = useState('');
-
-  const { data, isLoading, isError, error: queryError } = useCharacters(!!apiKey);
-
-  const errorMessage = useMemo(() => {
-    if (!isError || !queryError) return null;
-    const resp = (queryError as any)?.response;
-    if (resp?.status === 401) {
-      clearApiKey();
-      return 'Неверный API-ключ. Проверьте ключ и попробуйте снова.';
-    }
-    return resp?.data?.detail || 'Ошибка загрузки персонажей';
-  }, [isError, queryError, clearApiKey]);
-
-  if (!apiKey) {
-    return (
-      <Layout>
-        <div className="max-w-md mx-auto mt-20">
-          <Card>
-            <h1 className="text-2xl font-bold text-text-primary mb-2">GW2 Assistant</h1>
-            <p className="text-text-secondary text-sm mb-6">
-              Введите API-ключ Guild Wars 2 для начала работы<br />
-              Ключ нужен с правами: <code className="text-indigo-400 text-xs">account</code>, <code className="text-indigo-400 text-xs">characters</code>, <code className="text-indigo-400 text-xs">inventories</code>
-            </p>
-            <div className="space-y-4">
-              <Input
-                label="API Key"
-                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                value={keyInput}
-                onChange={(e) => setKeyInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && keyInput.trim()) {
-                    setApiKey(keyInput.trim());
-                  }
-                }}
-              />
-              <Button
-                className="w-full"
-                size="lg"
-                disabled={!keyInput.trim()}
-                onClick={() => setApiKey(keyInput.trim())}
-              >
-                Подключиться
-              </Button>
-            </div>
-          </Card>
-        </div>
-      </Layout>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-text-primary">Мои персонажи</h1>
-        </div>
-        <SkeletonGrid count={8} className="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" />
-      </Layout>
-    );
-  }
-
-  if (isError) {
-    return (
-      <Layout>
-        <div className="max-w-md mx-auto mt-20">
-          <Card>
-            <h2 className="text-xl font-bold text-text-primary mb-2">Ошибка</h2>
-            <p className="text-red-400 text-sm mb-4">{errorMessage}</p>
-            <Button variant="secondary" onClick={clearApiKey}>
-              Ввести другой ключ
-            </Button>
-          </Card>
-        </div>
-      </Layout>
-    );
-  }
-
-  const characters = data?.characters || [];
+  const { data, isLoading, isError, error } = useCharacters();
 
   return (
     <Layout>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-text-primary">Мои персонажи</h1>
-        <Button variant="ghost" size="sm" onClick={clearApiKey}>
-          Сменить ключ
-        </Button>
-      </div>
+      <h1 className="text-2xl font-bold text-text-primary mb-6">Выберите персонажа</h1>
 
-      {characters.length === 0 && (
+      {isLoading && <SkeletonGrid count={6} />}
+
+      {isError && (
         <Card>
-          <p className="text-text-secondary text-center py-8">
-            У вашего API-ключа нет персонажей
+          <p className="text-red-400">Ошибка загрузки персонажей</p>
+          <p className="text-sm text-text-secondary mt-1">
+            {(error as any)?.response?.data?.detail || String(error)}
           </p>
         </Card>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {characters.map((char) => (
-          <Card key={char.name} className="overflow-hidden hover:border-indigo-500/50 transition-all hover:shadow-lg hover:shadow-indigo-500/5 p-0">
-            <CharacterRender name={char.name} apiKey={apiKey} profession={char.profession} />
-            <div className="p-4">
-              <div className="mb-3">
-                <h2 className="text-lg font-semibold text-text-primary truncate">{char.name}</h2>
-                <p className="text-sm text-text-secondary">
-                  {PROFESSION_RU[char.profession] || char.profession}
-                  {' · '}
-                  {RACE_RU[char.race] || char.race}
-                  {' · '}
-                  Ур. {char.level}
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <Link to={`/build/${encodeURIComponent(char.name)}`} className="flex-1">
-                  <Button variant="secondary" size="sm" className="w-full">
-                    Билд
-                  </Button>
-                </Link>
-                <Link to={`/inventory/${encodeURIComponent(char.name)}`} className="flex-1">
-                  <Button variant="secondary" size="sm" className="w-full">
-                    Инвентарь
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
+      {!isLoading && !isError && data?.characters && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          {data.characters.map((character) => (
+            <CharacterCard key={character.name} character={character} />
+          ))}
+        </div>
+      )}
+
+      {!isLoading && !isError && (!data?.characters || data.characters.length === 0) && (
+        <Card>
+          <p className="text-text-secondary text-center py-8">
+            Нет персонажей. Убедитесь, что API ключ действителен.
+          </p>
+        </Card>
+      )}
     </Layout>
   );
 }
