@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { CharacterSelectPage } from '../pages/CharacterSelectPage';
+import { CharacterPage } from '../pages/CharacterPage';
 import { BuildPage } from '../pages/BuildPage';
 import { InventoryPage } from '../pages/InventoryPage';
 import { BankPage } from '../pages/BankPage';
@@ -13,6 +14,7 @@ export function AppRoutes() {
       <ErrorBoundary>
         <Routes>
           <Route path="/" element={<CharacterSelectPage />} />
+          <Route path="/character/:name" element={<CharacterPage />} />
           <Route path="/build/:name" element={<BuildPage />} />
           <Route path="/inventory/:name" element={<InventoryPage />} />
           <Route path="/bank/:name" element={<BankPage />} />

@@ -1,5 +1,5 @@
 import { apiClient } from './apiClient';
-import type { CharacterListResponse } from '../../entities/character/model/types';
+import type { CharacterListResponse, CharacterFullResponse } from '../../entities/character/model/types';
 import type { WalletResponse } from '../../entities/character/model/types';
 import type { ItemDetailsListResponse } from '../../entities/item/model/types';
 import type { PriceResponse } from '../../entities/price/model/types';
@@ -77,6 +77,16 @@ export const gw2Client = {
 
   getCharacterBuild: async (name: string) => {
     const { data } = await apiClient.get<BuildResponse>(`/characters/${encodeURIComponent(name)}/build`);
+    return data;
+  },
+
+  getCharacterFull: async (name: string) => {
+    const { data } = await apiClient.get<CharacterFullResponse>(`/characters/${encodeURIComponent(name)}/full`);
+    return data;
+  },
+
+  getCurrencies: async () => {
+    const { data } = await apiClient.get('/currencies');
     return data;
   },
 

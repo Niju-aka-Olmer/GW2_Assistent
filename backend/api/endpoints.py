@@ -20,6 +20,7 @@ from api.gw2_client import (
     get_commerce_listings,
     get_commerce_exchange,
     get_account_wallet,
+    get_currencies,
     search_items_by_name,
 )
 from api.deepseek_client import analyze as deepseek_analyze
@@ -46,7 +47,7 @@ def _strip_gw2_tags(text: Optional[str]) -> Optional[str]:
 
 
 def _sanitize_item(item: dict) -> dict:
-    """Clean up item data by stripping GW2 markup tags and extracting attributes."""
+    """Clean up item data by stripping GW2 markup tags and extracting all possible attributes."""
     if "description" in item:
         item["description"] = _strip_gw2_tags(item.get("description"))
     details = item.get("details") or {}
@@ -57,6 +58,46 @@ def _sanitize_item(item: dict) -> dict:
     item["defense"] = details.get("defense")
     item["weight_class"] = details.get("weight_class")
     item["item_type"] = details.get("type")
+
+    # Full item details extraction
+    item["rarity"] = item.get("rarity", "")
+    item["level"] = item.get("level", 0)
+    item["vendor_value"] = item.get("vendor_value", 0)
+    item["default_skin"] = item.get("default_skin", 0)
+    item["flags"] = item.get("flags", [])
+
+    # Extract details sub-fields
+    item["armor_class"] = details.get("weight_class", "")
+    item["armor_type"] = details.get("type", "")
+    item["armor_defense"] = details.get("defense")
+    item["weapon_type"] = details.get("type", "")
+    item["weapon_damage_type"] = details.get("damage_type", "")
+    item["weapon_min_power"] = details.get("min_power")
+    item["weapon_max_power"] = details.get("max_power")
+    item["trinket_type"] = details.get("type", "")
+    item["container_type"] = details.get("type", "")
+    item["bag_size"] = details.get("size")
+    item["gathering_tool_type"] = details.get("type", "")
+    item["consumable_type"] = details.get("type", "")
+    item["gizmo_type"] = details.get("type", "")
+    item["suffix_item_id"] = details.get("suffix_item_id")
+
+    # Suffix / upgrade
+    suffix = details.get("suffix") or {}
+    item["suffix"] = suffix.get("name", "")
+
+    # Infusion slots
+    infusion_slots = details.get("infusion_slots") or []
+    item["infusion_slots"] = [s.get("flags", []) for s in infusion_slots]
+
+    # Upgrade component
+    upgrade = details.get("upgrade_component") or {}
+    if upgrade:
+        item["upgrade_component"] = {
+            "name": upgrade.get("name", ""),
+            "description": _strip_gw2_tags(upgrade.get("description", "")),
+        }
+
     return item
 
 
@@ -78,7 +119,47 @@ def _get_api_key(authorization: Optional[str] = None) -> str:
 async def account_wallet(authorization: Optional[str] = Header(None)):
     api_key = _get_api_key(authorization)
     wallet = await get_account_wallet(api_key)
-    return {"wallet": wallet}
+
+    currency_ids = [w["id"] for w in wallet]
+    currency_map = {}
+    if currency_ids:
+        currencies = await get_currencies(currency_ids)
+        for c in currencies:
+            currency_map[c["id"]] = c
+
+    enriched = []
+    for w in wallet:
+        cid = w["id"]
+        info = currency_map.get(cid, {})
+        enriched.append({
+            "id": cid,
+            "name": info.get("name", f"Currency {cid}"),
+            "icon": info.get("icon", ""),
+            "value": w.get("value", 0),
+            "description": info.get("description", ""),
+            "order": info.get("order", 999),
+        })
+    enriched.sort(key=lambda x: x["order"])
+    return {"wallet": enriched}
+
+
+@router.get("/currencies")
+async def currencies_endpoint(
+    currency_ids: str = Query("all"),
+):
+    if currency_ids == "all":
+        import httpx
+        async with httpx.AsyncClient() as client:
+            resp = await client.get("https://api.guildwars2.com/v2/currencies?ids=all&page=0&page_size=200")
+            if resp.status_code == 200:
+                all_currencies = resp.json()
+                return {"currencies": [{"id": c["id"], "name": c["name"], "icon": c["icon"], "description": c.get("description", ""), "order": c.get("order", 999)} for c in all_currencies]}
+        return {"currencies": []}
+    ids = [int(x.strip()) for x in currency_ids.split(",") if x.strip()]
+    if not ids:
+        return {"currencies": []}
+    currencies = await get_currencies(ids)
+    return {"currencies": [{"id": c["id"], "name": c["name"], "icon": c["icon"], "description": c.get("description", ""), "order": c.get("order", 999)} for c in currencies]}
 
 
 @router.post("/auth")
@@ -182,6 +263,154 @@ async def character_build(
         "profession": core.get("profession", ""),
         "specializations": specializations,
         "equipment": equipment,
+    }
+
+
+@router.get("/characters/{name}/full")
+async def character_full(
+    name: str,
+    authorization: Optional[str] = Header(None),
+):
+    api_key = _get_api_key(authorization)
+    core = await get_character_core(api_key, name)
+    build_data = await get_character_build_tab(api_key, name)
+    equipment_data = await get_character_equipment(api_key, name)
+    wallet_data = await get_account_wallet(api_key)
+
+    # Currency info for wallet
+    currency_ids = [w["id"] for w in wallet_data]
+    currency_map = {}
+    if currency_ids:
+        currencies = await get_currencies(currency_ids)
+        for c in currencies:
+            currency_map[c["id"]] = c
+
+    # Enrich wallet
+    wallet_enriched = []
+    for w in wallet_data:
+        cid = w["id"]
+        info = currency_map.get(cid, {})
+        wallet_enriched.append({
+            "id": cid,
+            "name": info.get("name", f"Currency {cid}"),
+            "icon": info.get("icon", ""),
+            "value": w.get("value", 0),
+            "description": info.get("description", ""),
+            "order": info.get("order", 999),
+        })
+    wallet_enriched.sort(key=lambda x: x["order"])
+
+    # Specializations with details
+    spec_ids = [s["id"] for s in build_data.get("specializations", [])]
+    specs_info = {}
+    if spec_ids:
+        specs_raw = await get_specialization_details(spec_ids)
+        for s in specs_raw:
+            specs_info[s["id"]] = s
+
+    specializations = []
+    for spec in build_data.get("specializations", []):
+        spec_id = spec["id"]
+        info = specs_info.get(spec_id, {})
+        trait_details = []
+        for t in info.get("traits", []):
+            trait_details.append({
+                "id": t.get("id"),
+                "name": t.get("name"),
+                "icon": t.get("icon"),
+                "description": _strip_gw2_tags(t.get("description", "")),
+                "tier": t.get("tier"),
+                "order": t.get("order"),
+                "slot": t.get("slot"),
+            })
+        specializations.append({
+            "id": spec_id,
+            "name": info.get("name", f"Specialization {spec_id}"),
+            "icon": info.get("icon", ""),
+            "background": info.get("background", ""),
+            "all_traits": trait_details,
+            "selected_traits": spec.get("traits", []),
+        })
+
+    # Skills with details
+    skill_ids = list(build_data.get("skills", {}).values())
+    skills_info = {}
+    if skill_ids:
+        skills_raw = await get_skill_details(skill_ids)
+        for s in skills_raw:
+            skills_info[s["id"]] = s
+    skill_slots = build_data.get("skills", {})
+    skills = {}
+    for slot_name, skill_id in skill_slots.items():
+        info = skills_info.get(skill_id, {})
+        skills[slot_name] = {
+            "id": skill_id,
+            "name": info.get("name", f"Skill {skill_id}"),
+            "icon": info.get("icon", ""),
+            "description": _strip_gw2_tags(info.get("description", "")),
+            "type": info.get("type", ""),
+            "weapon_type": info.get("weapon_type", ""),
+            "slot": slot_name,
+        }
+
+    # Equipment with full details
+    equipment_item_ids = [
+        eq["id"] for eq in equipment_data.get("equipment", []) if eq
+    ]
+    equipment_details = {}
+    if equipment_item_ids:
+        items_raw = await get_item_details(equipment_item_ids)
+        for item in items_raw:
+            equipment_details[item["id"]] = _sanitize_item(item)
+
+    # Calculate combined stats from equipment
+    combined_stats = {}
+    for eq in equipment_data.get("equipment", []):
+        eq_stats = eq.get("stats", {}) or {}
+        for attr, val in eq_stats.items():
+            combined_stats[attr] = combined_stats.get(attr, 0) + val
+
+    equipment = []
+    for eq in equipment_data.get("equipment", []):
+        item_info = equipment_details.get(eq["id"], {})
+        equipment.append({
+            "id": eq["id"],
+            "name": item_info.get("name", f"Item {eq['id']}"),
+            "icon": item_info.get("icon", ""),
+            "slot": eq.get("slot", ""),
+            "rarity": item_info.get("rarity", "Basic"),
+            "level": item_info.get("level", 0),
+            "stats": eq.get("stats"),
+            "infusions": eq.get("infusions", []),
+            "upgrades": eq.get("upgrades", []),
+            "details": {
+                k: item_info.get(k) for k in [
+                    "item_type", "weight_class", "defense", "description",
+                    "armor_type", "weapon_type", "trinket_type",
+                    "suffix", "flags",
+                ]
+            } if any(item_info.get(k) for k in ["item_type", "weight_class", "defense"]) else None,
+        })
+
+    # Crafting info
+    crafting = core.get("crafting", [])
+
+    return {
+        "name": core.get("name", name),
+        "race": core.get("race", ""),
+        "gender": core.get("gender", ""),
+        "profession": core.get("profession", ""),
+        "level": core.get("level", 0),
+        "age": core.get("age", 0),
+        "created": core.get("created", ""),
+        "deaths": core.get("deaths", 0),
+        "title": core.get("title"),
+        "wallet": wallet_enriched,
+        "combined_stats": combined_stats,
+        "specializations": specializations,
+        "skills": skills,
+        "equipment": equipment,
+        "crafting": crafting,
     }
 
 

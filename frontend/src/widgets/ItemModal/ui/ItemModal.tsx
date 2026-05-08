@@ -25,12 +25,79 @@ const FLAGS_RU: Record<string, string> = {
   'AccountBindOnUse': 'Привязывается при использовании',
   'Soulbound': 'Привязано к персонажу',
   'SoulbindOnUse': 'Привязывается при надевании',
+  'SoulbindOnAcquire': 'Привязывается при получении',
   'Unique': 'Уникальное',
   'NotSellable': 'Не продаётся',
   'NoSell': 'Не продаётся',
   'HideSuffix': 'Скрывать суффикс',
   'MonsterOnly': 'Только для монстров',
   'Previewable': 'Можно предпросмотреть',
+};
+
+const SLOT_RU: Record<string, string> = {
+  Helm: 'Шлем',
+  Shoulders: 'Наплечники',
+  Coat: 'Куртка',
+  Gloves: 'Перчатки',
+  Leggings: 'Поножи',
+  Boots: 'Сапоги',
+  HelmAquatic: 'Подводная маска',
+  Backpack: 'Рюкзак',
+};
+
+const WEAPON_TYPE_RU: Record<string, string> = {
+  Sword: 'Меч',
+  Axe: 'Топор',
+  Dagger: 'Кинжал',
+  Mace: 'Булава',
+  Greatsword: 'Большой меч',
+  Hammer: 'Молот',
+  Staff: 'Посох',
+  Scepter: 'Скипетр',
+  Focus: 'Фокус',
+  Shield: 'Щит',
+  Torch: 'Факел',
+  Warhorn: 'Рог',
+  ShortBow: 'Короткий лук',
+  LongBow: 'Длинный лук',
+  Rifle: 'Винтовка',
+  Pistol: 'Пистолет',
+  HarpoonGun: 'Гарпун',
+  Trident: 'Трезубец',
+  Speargun: 'Гарпун',
+  Spear: 'Копьё',
+  StaffWater: 'Водный посох',
+  Scythe: 'Коса',
+};
+
+const DAMAGE_TYPE_RU: Record<string, string> = {
+  Physical: 'Физический',
+  Fire: 'Огонь',
+  Ice: 'Лёд',
+  Lightning: 'Молния',
+  Dark: 'Тьма',
+  Chilling: 'Холод',
+  Light: 'Свет',
+};
+
+const TRINKET_TYPE_RU: Record<string, string> = {
+  Accessory: 'Аксессуар',
+  Ring: 'Кольцо',
+  Amulet: 'Амулет',
+};
+
+const INFUSION_FLAGS_RU: Record<string, string> = {
+  Offensive: 'Атакующее',
+  Defensive: 'Защитное',
+  Utility: 'Утилитарное',
+  Infusion: 'Инфузия',
+};
+
+const ITEM_FLAGS_RU: Record<string, string> = {
+  AccountBound: 'Аккаунт',
+  AccountBindOnUse: 'При использовании',
+  Soulbound: 'Персонаж',
+  SoulbindOnUse: 'При надевании',
 };
 
 export function ItemModal({ item, slot, onClose }: ItemModalProps) {
@@ -69,17 +136,49 @@ export function ItemModal({ item, slot, onClose }: ItemModalProps) {
 
   const hasAttributes = allAttributes.length > 0;
 
-  let flagsText = '';
-  if (item.flags) {
-    const knownFlags = item.flags
-      .map((f) => FLAGS_RU[f])
-      .filter(Boolean);
-    if (knownFlags.length > 0) flagsText = knownFlags.join(', ');
-  }
+  const knownFlags = (item.flags || [])
+    .map((f) => FLAGS_RU[f])
+    .filter(Boolean);
+  const flagsText = knownFlags.length > 0 ? knownFlags.join(', ') : '';
 
   const typeInfo = item.weight_class
     ? `${getItemTypeRu(item.type)} (${item.weight_class === 'Heavy' ? 'Тяжёлая' : item.weight_class === 'Medium' ? 'Средняя' : item.weight_class === 'Light' ? 'Лёгкая' : item.weight_class})`
     : getItemTypeRu(item.type);
+
+  const armorType = item.armor_type
+    ? SLOT_RU[item.armor_type] || item.armor_type
+    : null;
+
+  const weaponType = item.weapon_type
+    ? WEAPON_TYPE_RU[item.weapon_type] || item.weapon_type
+    : null;
+
+  const damageType = item.weapon_damage_type
+    ? DAMAGE_TYPE_RU[item.weapon_damage_type] || item.weapon_damage_type
+    : null;
+
+  const trinketType = item.trinket_type
+    ? TRINKET_TYPE_RU[item.trinket_type] || item.trinket_type
+    : null;
+
+  const containerType = item.container_type
+    ? getItemTypeRu(item.container_type)
+    : null;
+
+  const consumableType = item.consumable_type
+    ? getItemTypeRu(item.consumable_type)
+    : null;
+
+  const bindingFlags = (item.flags || []).filter(f =>
+    ['AccountBound', 'AccountBindOnUse', 'Soulbound', 'SoulbindOnUse', 'SoulbindOnAcquire'].includes(f)
+  );
+  const bindingText = bindingFlags.length > 0
+    ? bindingFlags.map(f => ITEM_FLAGS_RU[f] || f).join(', ')
+    : '';
+
+  const prefixLabel = item.suffix && !item.flags?.includes('HideSuffix')
+    ? item.suffix
+    : null;
 
   return (
     <div
@@ -115,11 +214,6 @@ export function ItemModal({ item, slot, onClose }: ItemModalProps) {
                 </button>
               </div>
               <p className="text-sm text-text-secondary mt-1">{typeInfo}</p>
-              {item.level > 0 && (
-                <p className="text-sm text-text-secondary">
-                  Требуется уровень: <span className="text-indigo-400 font-medium">{item.level}</span>
-                </p>
-              )}
             </div>
           </div>
 
@@ -128,13 +222,6 @@ export function ItemModal({ item, slot, onClose }: ItemModalProps) {
               <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap">
                 {item.description}
               </p>
-            </div>
-          )}
-
-          {item.defense && item.defense > 0 && (
-            <div className="mb-3 flex items-center gap-2">
-              <span className="text-xs text-text-secondary">Защита:</span>
-              <span className="text-sm font-medium text-text-primary">{item.defense}</span>
             </div>
           )}
 
@@ -155,39 +242,143 @@ export function ItemModal({ item, slot, onClose }: ItemModalProps) {
             </div>
           )}
 
-          {item.rarity && (
-            <div className="mb-3 flex items-center gap-2">
-              <span className="text-xs text-text-secondary">Редкость:</span>
-              <span className="text-sm font-medium" style={{ color: rarityColor }}>
-                {item.rarity}
-              </span>
+          {item.upgrade_component && (
+            <div className="mb-4 p-3 bg-amber-500/5 rounded-xl border border-amber-500/20">
+              <p className="text-xs font-semibold text-amber-400 uppercase tracking-wider mb-1">Улучшение</p>
+              <p className="text-sm font-medium text-text-primary">{item.upgrade_component.name}</p>
+              {item.upgrade_component.description && (
+                <p className="text-xs text-text-secondary mt-1">{item.upgrade_component.description}</p>
+              )}
             </div>
           )}
 
-          {item.vendor_value != null && item.vendor_value > 0 && (
-            <div className="mb-3 flex items-center gap-2">
-              <span className="text-xs text-text-secondary">Продажа торговцу:</span>
-              <CoinBadge value={item.vendor_value} />
-            </div>
-          )}
+          <div className="space-y-2">
+            {item.rarity && (
+              <DetailRow label="Редкость" value={item.rarity} color={rarityColor} />
+            )}
 
-          {flagsText && (
-            <div className="mb-3 flex items-center gap-2">
-              <span className="text-xs text-text-secondary">Свойства:</span>
-              <span className="text-sm text-text-primary">{flagsText}</span>
-            </div>
-          )}
+            {item.level > 0 && (
+              <DetailRow label="Треб. уровень" value={String(item.level)} />
+            )}
+
+            {item.vendor_value != null && item.vendor_value > 0 && (
+              <div className="flex items-center gap-2 py-1">
+                <span className="text-xs text-text-secondary min-w-[140px]">Продажа торговцу:</span>
+                <CoinBadge value={item.vendor_value} />
+              </div>
+            )}
+
+            {item.armor_class && (
+              <DetailRow
+                label="Класс брони"
+                value={item.armor_class === 'Heavy' ? 'Тяжёлая броня' : item.armor_class === 'Medium' ? 'Средняя броня' : item.armor_class === 'Light' ? 'Лёгкая броня' : item.armor_class}
+              />
+            )}
+
+            {armorType && (
+              <DetailRow label="Тип" value={armorType} />
+            )}
+
+            {item.armor_defense != null && item.armor_defense > 0 && (
+              <DetailRow label="Защита" value={String(item.armor_defense)} />
+            )}
+
+            {weaponType && (
+              <DetailRow label="Тип оружия" value={weaponType} />
+            )}
+
+            {damageType && (
+              <DetailRow label="Тип урона" value={damageType} />
+            )}
+
+            {item.weapon_min_power != null && item.weapon_max_power != null && (
+              <DetailRow label="Урон" value={`${item.weapon_min_power} – ${item.weapon_max_power}`} />
+            )}
+
+            {trinketType && (
+              <DetailRow label="Тип аксессуара" value={trinketType} />
+            )}
+
+            {item.bag_size != null && item.bag_size > 0 && (
+              <DetailRow label="Размер сумки" value={`${item.bag_size} слотов`} />
+            )}
+
+            {containerType && (
+              <DetailRow label="Тип контейнера" value={containerType} />
+            )}
+
+            {consumableType && (
+              <DetailRow label="Тип расходника" value={consumableType} />
+            )}
+
+            {item.gathering_tool_type && (
+              <DetailRow label="Тип инструмента" value={item.gathering_tool_type} />
+            )}
+
+            {item.gizmo_type && (
+              <DetailRow label="Тип гизмо" value={item.gizmo_type} />
+            )}
+
+            {prefixLabel && (
+              <DetailRow label="Префикс" value={prefixLabel} />
+            )}
+
+            {item.default_skin != null && item.default_skin > 0 && (
+              <DetailRow label="ID скина" value={`#${item.default_skin}`} />
+            )}
+
+            {item.suffix_item_id != null && item.suffix_item_id > 0 && (
+              <DetailRow label="ID суффикса" value={String(item.suffix_item_id)} />
+            )}
+
+            {item.infusion_slots && item.infusion_slots.length > 0 && (
+              <div className="flex items-start gap-2 py-1">
+                <span className="text-xs text-text-secondary min-w-[140px] pt-0.5">Слоты инфузий:</span>
+                <div className="flex flex-wrap gap-1">
+                  {item.infusion_slots.map((slot, i) => {
+                    const flags = slot.flags?.map(f => INFUSION_FLAGS_RU[f] || f).join(', ') || '';
+                    return (
+                      <span key={i} className="text-xs bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded-full border border-indigo-500/20">
+                        {flags || `Слот ${i + 1}`}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {bindingText && (
+              <DetailRow label="Привязка" value={bindingText} />
+            )}
+
+            {flagsText && (
+              <DetailRow label="Флаги" value={flagsText} />
+            )}
+          </div>
 
           {item.chat_link && (
             <div className="pt-3 border-t border-border-primary mt-3">
               <p className="text-xs text-text-secondary mb-1">Чат-ссылка (для передачи в игре):</p>
-              <p className="text-xs text-text-tertiary font-mono select-all bg-bg-tertiary px-2 py-1 rounded">
+              <p className="text-xs text-text-tertiary font-mono select-all bg-bg-tertiary px-2 py-1 rounded break-all">
                 {item.chat_link}
               </p>
             </div>
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function DetailRow({ label, value, color }: { label: string; value: string; color?: string }) {
+  return (
+    <div className="flex items-center gap-2 py-1">
+      <span className="text-xs text-text-secondary min-w-[140px]">{label}:</span>
+      {color ? (
+        <span className="text-sm font-medium" style={{ color }}>{value}</span>
+      ) : (
+        <span className="text-sm text-text-primary">{value}</span>
+      )}
     </div>
   );
 }

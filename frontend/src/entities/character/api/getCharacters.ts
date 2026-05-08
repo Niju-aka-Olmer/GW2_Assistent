@@ -21,6 +21,16 @@ export function useCharacterBuild(name: string) {
   });
 }
 
+export function useCharacterFull(name: string) {
+  return useQuery({
+    queryKey: ['character-full', name],
+    queryFn: () => gw2Client.getCharacterFull(name),
+    staleTime: 5 * 60 * 1000,
+    retry: 2,
+    enabled: !!name,
+  });
+}
+
 export function useCharacterInventory(name: string) {
   return useQuery({
     queryKey: ['character-inventory', name],

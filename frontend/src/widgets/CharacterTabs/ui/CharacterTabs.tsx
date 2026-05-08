@@ -6,12 +6,14 @@ interface CharacterTabsProps {
 }
 
 const TABS = [
+  { path: (name: string) => `/character/${encodeURIComponent(name)}`, label: 'Персонаж' },
   { path: (name: string) => `/build/${encodeURIComponent(name)}`, label: 'Экипировка' },
   { path: (name: string) => `/inventory/${encodeURIComponent(name)}`, label: 'Инвентарь' },
   { path: (name: string) => `/bank/${encodeURIComponent(name)}`, label: 'Банк' },
 ];
 
 function getActiveTab(pathname: string): string {
+  if (pathname.startsWith('/character')) return 'Персонаж';
   if (pathname.startsWith('/build')) return 'Экипировка';
   if (pathname.startsWith('/inventory')) return 'Инвентарь';
   if (pathname.startsWith('/bank')) return 'Банк';

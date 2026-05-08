@@ -211,6 +211,10 @@ async def get_account_wallet(api_key: str) -> list[dict]:
     return await _get("account/wallet", api_key=api_key)
 
 
+async def get_currencies(currency_ids: list[int]) -> list[dict]:
+    return await _get_batch("currencies", currency_ids)
+
+
 async def get_commerce_prices(item_ids: list[int]) -> list[dict]:
     missing_ids = []
     prices_map = {}

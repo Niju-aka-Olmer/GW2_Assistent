@@ -44,23 +44,7 @@ const PROFESSION_RU: Record<string, string> = {
   Revenant: 'Ревенант',
 };
 
-const CURRENCY_INFO: Record<number, { name: string; icon: string }> = {
-  1: { name: 'Монеты', icon: 'https://wiki.guildwars2.com/images/thumb/a/ac/Coin_%28icon%29.png/32px-Coin_%28icon%29.png' },
-  2: { name: 'Карма', icon: 'https://wiki.guildwars2.com/images/thumb/2/24/Karma_%28icon%29.png/32px-Karma_%28icon%29.png' },
-  3: { name: 'Лавры', icon: 'https://wiki.guildwars2.com/images/thumb/8/8a/Laurel_%28icon%29.png/32px-Laurel_%28icon%29.png' },
-  4: { name: 'Трансмутации', icon: 'https://wiki.guildwars2.com/images/thumb/a/a6/Transmutation_Charge_%28icon%29.png/32px-Transmutation_Charge_%28icon%29.png' },
-  5: { name: 'Осколки духа', icon: 'https://wiki.guildwars2.com/images/thumb/0/07/Spirit_Shard_%28icon%29.png/32px-Spirit_Shard_%28icon%29.png' },
-  6: { name: 'Гемы', icon: 'https://wiki.guildwars2.com/images/thumb/4/4a/Gem_%28icon%29.png/32px-Gem_%28icon%29.png' },
-};
-
-const CURRENCY_ORDER = [1, 6, 2, 3, 5, 4];
-
-function formatWalletValue(currency: WalletCurrency): string {
-  if (currency.id === 1) {
-    return '';
-  }
-  return currency.value.toLocaleString('ru-RU');
-}
+const COIN_ID = 1;
 
 function CharacterCard({ character }: { character: CharacterSummary }) {
   return (
@@ -96,30 +80,35 @@ function CharacterCard({ character }: { character: CharacterSummary }) {
 }
 
 function WalletDisplay({ wallet }: { wallet: WalletCurrency[] }) {
-  const currencyMap = new Map(wallet.map(c => [c.id, c]));
+  const sorted = [...wallet].sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
 
   return (
     <Card className="mb-6">
       <h2 className="text-sm font-semibold text-[#c9a84c] uppercase tracking-wider mb-3">Кошелёк</h2>
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-        {CURRENCY_ORDER.map(id => {
-          const info = CURRENCY_INFO[id];
-          if (!info) return null;
-          const entry = currencyMap.get(id);
-          if (!entry) return null;
-          if (id === 1) {
+        {sorted.map(entry => {
+          if (entry.id === COIN_ID) {
             return (
-              <div key={id} className="flex items-center gap-1.5">
-                <span className="text-xs text-text-secondary">{info.name}:</span>
+              <div key={entry.id} className="flex items-center gap-1.5">
+                <span className="text-xs text-text-secondary">{entry.name || 'Монеты'}:</span>
                 <CoinBadge value={entry.value} size={10} />
               </div>
             );
           }
           return (
-            <div key={id} className="flex items-center gap-1.5">
-              <img src={info.icon} alt={info.name} className="w-4 h-4" />
-              <span className="text-xs text-text-secondary">{info.name}:</span>
-              <span className="text-xs text-text-primary font-medium">{formatWalletValue(entry)}</span>
+            <div key={entry.id} className="flex items-center gap-1.5">
+              {entry.icon && (
+                <img
+                  src={entry.icon}
+                  alt={entry.name || ''}
+                  className="w-4 h-4"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              )}
+              <span className="text-xs text-text-secondary">{entry.name || `Валюта ${entry.id}`}:</span>
+              <span className="text-xs text-text-primary font-medium">{entry.value.toLocaleString('ru-RU')}</span>
             </div>
           );
         })}
