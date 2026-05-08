@@ -234,7 +234,7 @@ ITEM_NAMES_CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 
 ITEM_NAMES_CACHE_FILE = os.path.join(ITEM_NAMES_CACHE_DIR, "item_names.json")
 _item_name_cache_data: dict[str, dict] | None = None
 _name_cache_lock = asyncio.Lock()
-_name_cache_building = False
+_name_cache_ready = asyncio.Event()
 
 
 def _get_name_cache_path() -> str:
@@ -306,50 +306,66 @@ async def _build_name_cache() -> dict[str, dict]:
 
 
 async def preload_item_name_cache():
-    global _item_name_cache_data, _name_cache_building
     try:
         cached = _load_name_cache_from_disk()
         if cached is not None and len(cached) > 10000:
             _item_name_cache_data = cached
+            _name_cache_ready.set()
             logger.info(f"Item name cache loaded from disk: {len(cached)} items")
             return
-        async with _name_cache_lock:
-            if not _name_cache_building:
-                _name_cache_building = True
-                try:
-                    _item_name_cache_data = await _build_name_cache()
-                finally:
-                    _name_cache_building = False
+        logger.info("Starting background item name cache build...")
+        _item_name_cache_data = await _build_name_cache()
+        if _item_name_cache_data and len(_item_name_cache_data) >= 10000:
+            _name_cache_ready.set()
+            logger.info(f"Background item name cache built: {len(_item_name_cache_data)} items")
     except Exception as e:
         logger.error(f"Failed to preload item name cache: {e}")
 
 
-async def search_items_by_name(query: str, page: int = 0, page_size: int = 24) -> dict:
-    global _item_name_cache_data, _name_cache_building
+async def _ensure_cache_ready(timeout: int = 180) -> bool:
+    global _item_name_cache_data
 
-    query = query.strip()
-    if not query or len(query) < 2:
-        return {"items": [], "total": 0, "page": page, "page_size": page_size, "has_more": False}
+    if _item_name_cache_data is not None and len(_item_name_cache_data) >= 10000:
+        _name_cache_ready.set()
+        return True
 
     if _item_name_cache_data is None:
         _item_name_cache_data = _load_name_cache_from_disk()
 
     if _item_name_cache_data is not None and len(_item_name_cache_data) >= 10000:
-        return _do_search(query, page, page_size)
+        _name_cache_ready.set()
+        return True
 
-    if _name_cache_building:
-        return {"building": True, "retry_after": 15, "items": [], "total": 0, "page": page, "page_size": page_size, "has_more": False}
+    if _name_cache_ready.is_set():
+        return True
 
     async with _name_cache_lock:
-        if _name_cache_building:
-            return {"building": True, "retry_after": 15, "items": [], "total": 0, "page": page, "page_size": page_size, "has_more": False}
-        _name_cache_building = True
-        try:
-            _item_name_cache_data = await _build_name_cache()
-        finally:
-            _name_cache_building = False
+        if _name_cache_ready.is_set():
+            return True
+        if not _name_cache_ready.is_set():
+            try:
+                _item_name_cache_data = await _build_name_cache()
+                if _item_name_cache_data and len(_item_name_cache_data) >= 10000:
+                    _name_cache_ready.set()
+            except Exception:
+                logger.exception("Failed to build item name cache")
 
-    if _item_name_cache_data is None or len(_item_name_cache_data) < 10000:
+    if not _name_cache_ready.is_set():
+        try:
+            await asyncio.wait_for(_name_cache_ready.wait(), timeout=timeout)
+        except asyncio.TimeoutError:
+            pass
+
+    return _name_cache_ready.is_set()
+
+
+async def search_items_by_name(query: str, page: int = 0, page_size: int = 24) -> dict:
+    query = query.strip()
+    if not query or len(query) < 2:
+        return {"items": [], "total": 0, "page": page, "page_size": page_size, "has_more": False}
+
+    ready = await _ensure_cache_ready(timeout=180)
+    if not ready:
         return {"building": True, "retry_after": 30, "items": [], "total": 0, "page": page, "page_size": page_size, "has_more": False}
 
     return _do_search(query, page, page_size)
