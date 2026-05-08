@@ -10,12 +10,15 @@ interface AnalysisEntry {
 }
 
 const STORAGE_KEY = 'gw2_analysis_history';
-const MAX_HISTORY = 3;
+const MAX_HISTORY = 10;
 
 function loadHistory(): AnalysisEntry[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const entries: AnalysisEntry[] = JSON.parse(raw);
+      return entries.map(e => ({ ...e, time: formatTime(e.timestamp) }));
+    }
   } catch {}
   return [];
 }
@@ -44,6 +47,13 @@ export function useAnalysisHistory() {
   useEffect(() => {
     saveToStorage(history);
   }, [history]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setHistory(prev => prev.map(e => ({ ...e, time: formatTime(e.timestamp) })));
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const saveAnalysis = useCallback((entry: Omit<AnalysisEntry, 'id' | 'time' | 'timestamp'>) => {
     setHistory(prev => {

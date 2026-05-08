@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Layout } from '../shared/ui/Layout';
 import { Card } from '../shared/ui/Card';
@@ -9,6 +9,34 @@ import { SimpleMarkdown } from '../shared/ui/SimpleMarkdown';
 import { useCharacters } from '../entities/character/api/getCharacters';
 import { deepseekClient } from '../shared/api/deepseekClient';
 import { useAnalysisHistory } from '../shared/hooks/useAnalysisHistory';
+
+const DS_KEY_STORAGE = 'gw2_deepseek_api_key';
+const DS_REMEMBER_FLAG = 'gw2_deepseek_remember';
+
+function getStoredDeepSeekKey(): string {
+  try {
+    const remembered = localStorage.getItem(DS_REMEMBER_FLAG) === 'true';
+    if (remembered) {
+      return localStorage.getItem(DS_KEY_STORAGE) || '';
+    }
+    return sessionStorage.getItem(DS_KEY_STORAGE) || '';
+  } catch {
+    return '';
+  }
+}
+
+function storeDeepSeekKey(key: string, remember: boolean) {
+  try {
+    sessionStorage.setItem(DS_KEY_STORAGE, key);
+    if (remember) {
+      localStorage.setItem(DS_KEY_STORAGE, key);
+      localStorage.setItem(DS_REMEMBER_FLAG, 'true');
+    } else {
+      localStorage.removeItem(DS_KEY_STORAGE);
+      localStorage.removeItem(DS_REMEMBER_FLAG);
+    }
+  } catch { }
+}
 
 const ANALYSIS_TABS = [
   { id: 'build', label: 'Анализ билда' },
@@ -23,8 +51,13 @@ const TARGET_OPTIONS = [
 export function RecommendationsPage() {
   const [analysisTab, setAnalysisTab] = useState('build');
   const [selectedChar, setSelectedChar] = useState('');
-  const [deepseekKey, setDeepseekKey] = useState('');
+  const [deepseekKey, setDeepseekKey] = useState(getStoredDeepSeekKey());
   const [showKeyInput, setShowKeyInput] = useState(false);
+  const [rememberDsKey, setRememberDsKey] = useState(() => {
+    try {
+      return localStorage.getItem(DS_REMEMBER_FLAG) === 'true';
+    } catch { return false; }
+  });
   const [inventoryTarget, setInventoryTarget] = useState<'inventory' | 'bank'>('inventory');
   const [viewingHistoryId, setViewingHistoryId] = useState<string | null>(null);
 
@@ -56,12 +89,22 @@ export function RecommendationsPage() {
 
   const handleAnalyze = () => {
     if (!selectedChar) return;
+    const key = deepseekKey.trim();
+    if (key && rememberDsKey) {
+      storeDeepSeekKey(key, true);
+    }
     setViewingHistoryId(null);
     if (analysisTab === 'build') {
       buildMutation.mutate(selectedChar);
     } else {
       inventoryMutation.mutate({ name: selectedChar, target: inventoryTarget });
     }
+  };
+
+  const handleForgetKey = () => {
+    storeDeepSeekKey('', false);
+    setDeepseekKey('');
+    setRememberDsKey(false);
   };
 
   const isAnalyzing = buildMutation.isPending || inventoryMutation.isPending;
@@ -150,13 +193,41 @@ export function RecommendationsPage() {
                   {showKeyInput ? 'Скрыть' : 'Указать свой'} DeepSeek API ключ
                 </button>
                 {showKeyInput && (
-                  <input
-                    type="password"
-                    className="w-full mt-2 bg-bg-secondary border border-border-primary rounded-lg px-3 py-2 text-text-primary text-sm focus:outline-none focus:border-[#c9a84c]"
-                    placeholder="DeepSeek API Key (опционально)"
-                    value={deepseekKey}
-                    onChange={(e) => setDeepseekKey(e.target.value)}
-                  />
+                  <div className="mt-2 space-y-2">
+                    <input
+                      type="password"
+                      className="w-full bg-bg-secondary border border-border-primary rounded-lg px-3 py-2 text-text-primary text-sm focus:outline-none focus:border-[#c9a84c]"
+                      placeholder="DeepSeek API Key (опционально)"
+                      value={deepseekKey}
+                      onChange={(e) => setDeepseekKey(e.target.value)}
+                    />
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={rememberDsKey}
+                        onChange={(e) => {
+                          setRememberDsKey(e.target.checked);
+                          if (!e.target.checked) {
+                            localStorage.removeItem(DS_KEY_STORAGE);
+                            localStorage.removeItem(DS_REMEMBER_FLAG);
+                          }
+                        }}
+                        className="w-3.5 h-3.5 rounded border-border-primary bg-bg-secondary text-[#c9a84c] focus:ring-[#c9a84c]"
+                      />
+                      <span className="text-xs text-text-secondary">Запомнить ключ</span>
+                    </label>
+                  </div>
+                )}
+                {rememberDsKey && !showKeyInput && (
+                  <div className="mt-1 flex items-center gap-2">
+                    <span className="text-[10px] text-text-tertiary">DeepSeek ключ сохранён</span>
+                    <button
+                      onClick={handleForgetKey}
+                      className="text-[10px] text-text-tertiary hover:text-red-400 transition-colors"
+                    >
+                      Забыть
+                    </button>
+                  </div>
                 )}
               </div>
 

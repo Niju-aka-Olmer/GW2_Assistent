@@ -44,13 +44,13 @@ const PROFESSION_RU: Record<string, string> = {
   Revenant: 'Ревенант',
 };
 
-const CURRENCY_INFO: Record<number, { name: string; icon: string; suffix?: string }> = {
-  1: { name: 'Монеты', icon: '🪙' },
-  2: { name: 'Карма', icon: '☯️' },
-  3: { name: 'Лавры', icon: '🏅' },
-  4: { name: 'Трансмутации', icon: '✨' },
-  5: { name: 'Осколки духа', icon: '💠' },
-  6: { name: 'Гемы', icon: '💎' },
+const CURRENCY_INFO: Record<number, { name: string; icon: string }> = {
+  1: { name: 'Монеты', icon: 'https://wiki.guildwars2.com/images/thumb/a/ac/Coin_%28icon%29.png/32px-Coin_%28icon%29.png' },
+  2: { name: 'Карма', icon: 'https://wiki.guildwars2.com/images/thumb/2/24/Karma_%28icon%29.png/32px-Karma_%28icon%29.png' },
+  3: { name: 'Лавры', icon: 'https://wiki.guildwars2.com/images/thumb/8/8a/Laurel_%28icon%29.png/32px-Laurel_%28icon%29.png' },
+  4: { name: 'Трансмутации', icon: 'https://wiki.guildwars2.com/images/thumb/a/a6/Transmutation_Charge_%28icon%29.png/32px-Transmutation_Charge_%28icon%29.png' },
+  5: { name: 'Осколки духа', icon: 'https://wiki.guildwars2.com/images/thumb/0/07/Spirit_Shard_%28icon%29.png/32px-Spirit_Shard_%28icon%29.png' },
+  6: { name: 'Гемы', icon: 'https://wiki.guildwars2.com/images/thumb/4/4a/Gem_%28icon%29.png/32px-Gem_%28icon%29.png' },
 };
 
 const CURRENCY_ORDER = [1, 6, 2, 3, 5, 4];
@@ -89,10 +89,6 @@ function CharacterCard({ character }: { character: CharacterSummary }) {
             <span className="text-text-tertiary mx-1">•</span>
             <span>Ур. {character.level}</span>
           </p>
-
-          <div className="mt-2">
-            <CoinBadge value={character.coins} />
-          </div>
         </div>
       </Card>
     </Link>
@@ -105,7 +101,7 @@ function WalletDisplay({ wallet }: { wallet: WalletCurrency[] }) {
   return (
     <Card className="mb-6">
       <h2 className="text-sm font-semibold text-[#c9a84c] uppercase tracking-wider mb-3">Кошелёк</h2>
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
         {CURRENCY_ORDER.map(id => {
           const info = CURRENCY_INFO[id];
           if (!info) return null;
@@ -121,7 +117,7 @@ function WalletDisplay({ wallet }: { wallet: WalletCurrency[] }) {
           }
           return (
             <div key={id} className="flex items-center gap-1.5">
-              <span className="text-xs">{info.icon}</span>
+              <img src={info.icon} alt={info.name} className="w-4 h-4" />
               <span className="text-xs text-text-secondary">{info.name}:</span>
               <span className="text-xs text-text-primary font-medium">{formatWalletValue(entry)}</span>
             </div>

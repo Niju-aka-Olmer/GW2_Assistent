@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Layout } from '../shared/ui/Layout';
 import { Card } from '../shared/ui/Card';
@@ -56,6 +56,30 @@ function formatGold(copper: number): string {
   return `${c}м`;
 }
 
+// --- Search history ---
+const SEARCH_HISTORY_KEY = 'gw2_tp_search_history';
+const MAX_SEARCH_HISTORY = 20;
+
+function loadSearchHistory(): string[] {
+  try {
+    const raw = localStorage.getItem(SEARCH_HISTORY_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function saveSearchQuery(query: string) {
+  try {
+    const history = loadSearchHistory();
+    const filtered = history.filter(q => q.toLowerCase() !== query.toLowerCase());
+    filtered.unshift(query);
+    localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(filtered.slice(0, MAX_SEARCH_HISTORY)));
+  } catch { }
+}
+
+function clearSearchHistory() {
+  localStorage.removeItem(SEARCH_HISTORY_KEY);
+}
+
 function rarityColor(rarity: string): string {
   const map: Record<string, string> = {
     Junk: 'text-gray-400',
@@ -79,6 +103,9 @@ export function TradingPostPage() {
   const [deepseekKey, setDeepseekKey] = useState('');
   const [showKeyInput, setShowKeyInput] = useState(false);
   const [rememberDsKey, setRememberDsKey] = useState(false);
+  const [searchHistory, setSearchHistory] = useState<string[]>(loadSearchHistory);
+  const [showSearchHistory, setShowSearchHistory] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
   const DS_STORAGE_KEY = 'gw2_deepseek_api_key';
   const DS_REMEMBER_FLAG = 'gw2_deepseek_remember';
 
@@ -164,9 +191,24 @@ export function TradingPostPage() {
   });
 
   const handleSearch = useCallback(() => {
-    setDebouncedQuery(searchQuery);
+    const trimmed = searchQuery.trim();
+    if (!trimmed) return;
+    saveSearchQuery(trimmed);
+    setSearchHistory(loadSearchHistory());
+    setShowSearchHistory(false);
+    setDebouncedQuery(trimmed);
     setPage(0);
   }, [searchQuery]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setShowSearchHistory(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') handleSearch();
@@ -233,14 +275,53 @@ export function TradingPostPage() {
             <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#f3c623]/40 to-transparent" />
             <h2 className="text-lg font-semibold text-[#c9a84c] mb-3">Поиск предметов</h2>
             <div className="flex gap-2">
-              <input
-                type="text"
-                className="flex-1 bg-bg-secondary border border-border-primary rounded-lg px-3 py-2 text-text-primary text-sm focus:outline-none focus:border-[#c9a84c]"
-                placeholder="Введите название предмета..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                onKeyDown={handleKeyDown}
-              />
+              <div ref={searchRef} className="relative flex-1">
+                <input
+                  type="text"
+                  className="w-full bg-bg-secondary border border-border-primary rounded-lg px-3 py-2 text-text-primary text-sm focus:outline-none focus:border-[#c9a84c]"
+                  placeholder="Введите название предмета..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onFocus={() => searchHistory.length > 0 && setShowSearchHistory(true)}
+                />
+                {showSearchHistory && searchHistory.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-bg-primary border border-border-primary rounded-lg shadow-xl z-50 max-h-60 overflow-y-auto">
+                    <div className="flex items-center justify-between px-3 py-1.5 border-b border-border-primary">
+                      <span className="text-[10px] text-text-tertiary uppercase tracking-wider">История поиска</span>
+                      <button
+                        onClick={() => { clearSearchHistory(); setSearchHistory([]); setShowSearchHistory(false); }}
+                        className="text-[10px] text-text-tertiary hover:text-red-400 transition-colors"
+                      >
+                        Очистить
+                      </button>
+                    </div>
+                    {searchHistory.map((q, i) => (
+                      <button
+                        key={`${q}-${i}`}
+                        className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors flex items-center gap-2"
+                        onClick={() => {
+                          setSearchQuery(q);
+                          setShowSearchHistory(false);
+                          const trimmed = q.trim();
+                          if (trimmed) {
+                            saveSearchQuery(trimmed);
+                            setSearchHistory(loadSearchHistory());
+                            setDebouncedQuery(trimmed);
+                            setPage(0);
+                          }
+                        }}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-text-tertiary flex-shrink-0">
+                          <circle cx="11" cy="11" r="8" />
+                          <path d="M21 21l-4.35-4.35" />
+                        </svg>
+                        <span className="truncate">{q}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <Button variant="gold" onClick={handleSearch} disabled={searchQuery.trim().length < 2}>
                 Поиск
               </Button>
@@ -530,7 +611,7 @@ export function TradingPostPage() {
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-lg font-semibold text-[#c9a84c]">Результат анализа</h2>
               </div>
-              <div className="text-sm text-text-primary leading-relaxed max-h-[500px] overflow-y-auto">
+              <div className="text-sm text-text-primary leading-relaxed">
                 <SimpleMarkdown text={analyzeMutation.data.analysis} />
               </div>
             </Card>
