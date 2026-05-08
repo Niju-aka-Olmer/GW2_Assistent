@@ -1,9 +1,13 @@
 import asyncio
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.endpoints import router
 from api.gw2_client import preload_item_name_cache
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="GW2 Assistant API",
@@ -28,6 +32,7 @@ app.include_router(router)
 
 @app.on_event("startup")
 async def startup():
+    logger.info("Starting background item name cache preload...")
     asyncio.create_task(preload_item_name_cache())
 
 
