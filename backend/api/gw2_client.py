@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import logging
+import time
 
 import httpx
 from typing import Any, Optional
@@ -235,6 +236,8 @@ ITEM_NAMES_CACHE_FILE = os.path.join(ITEM_NAMES_CACHE_DIR, "item_names.json")
 _item_name_cache_data: dict[str, dict] | None = None
 _name_cache_lock = asyncio.Lock()
 _name_cache_ready = asyncio.Event()
+_name_cache_last_failure: float = 0.0
+_name_cache_retry_delay = 30  # seconds to wait before retrying after failure
 
 
 def _get_name_cache_path() -> str:
@@ -322,8 +325,8 @@ async def preload_item_name_cache():
         logger.error(f"Failed to preload item name cache: {e}")
 
 
-async def _ensure_cache_ready(timeout: int = 180) -> bool:
-    global _item_name_cache_data
+async def _ensure_cache_ready() -> bool:
+    global _item_name_cache_data, _name_cache_last_failure
 
     if _item_name_cache_data is not None and len(_item_name_cache_data) >= 10000:
         _name_cache_ready.set()
@@ -339,6 +342,9 @@ async def _ensure_cache_ready(timeout: int = 180) -> bool:
     if _name_cache_ready.is_set():
         return True
 
+    if _name_cache_last_failure and time.time() - _name_cache_last_failure < _name_cache_retry_delay:
+        return False
+
     async with _name_cache_lock:
         if _name_cache_ready.is_set():
             return True
@@ -347,14 +353,11 @@ async def _ensure_cache_ready(timeout: int = 180) -> bool:
                 _item_name_cache_data = await _build_name_cache()
                 if _item_name_cache_data and len(_item_name_cache_data) >= 10000:
                     _name_cache_ready.set()
+                else:
+                    _name_cache_last_failure = time.time()
             except Exception:
                 logger.exception("Failed to build item name cache")
-
-    if not _name_cache_ready.is_set():
-        try:
-            await asyncio.wait_for(_name_cache_ready.wait(), timeout=timeout)
-        except asyncio.TimeoutError:
-            pass
+                _name_cache_last_failure = time.time()
 
     return _name_cache_ready.is_set()
 
@@ -364,7 +367,7 @@ async def search_items_by_name(query: str, page: int = 0, page_size: int = 24) -
     if not query or len(query) < 2:
         return {"items": [], "total": 0, "page": page, "page_size": page_size, "has_more": False}
 
-    ready = await _ensure_cache_ready(timeout=180)
+    ready = await _ensure_cache_ready()
     if not ready:
         return {"building": True, "retry_after": 30, "items": [], "total": 0, "page": page, "page_size": page_size, "has_more": False}
 
