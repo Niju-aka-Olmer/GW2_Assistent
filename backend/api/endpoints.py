@@ -24,7 +24,7 @@ from api.gw2_client import (
     search_items_by_name,
 )
 from api.deepseek_client import analyze as deepseek_analyze
-from services.build_analyzer import analyze_build_text
+from services.build_analyzer import analyze_build_text, fetch_metabattle_build, get_metabattle_build_name
 from services.inventory_analyzer import analyze_inventory_text, INVENTORY_INSTRUCTIONS
 from services.trading_post_analyzer import analyze_trading_post_prompt
 from cache.memory_cache import character_cache, item_cache, price_cache
@@ -82,9 +82,14 @@ def _sanitize_item(item: dict) -> dict:
     item["gizmo_type"] = details.get("type", "")
     item["suffix_item_id"] = details.get("suffix_item_id")
 
-    # Suffix / upgrade
-    suffix = details.get("suffix") or {}
-    item["suffix"] = suffix.get("name", "")
+    # Suffix / upgrade (may be a string or dict)
+    suffix = details.get("suffix")
+    if isinstance(suffix, dict):
+        item["suffix"] = suffix.get("name", "")
+    elif isinstance(suffix, str):
+        item["suffix"] = suffix
+    else:
+        item["suffix"] = ""
 
     # Infusion slots
     infusion_slots = details.get("infusion_slots") or []
@@ -244,6 +249,21 @@ async def character_build(
     equipment = []
     for eq in equipment_data.get("equipment", []):
         item_info = equipment_details.get(eq["id"], {})
+        raw_stats = eq.get("stats") or {}
+        attrs_raw = raw_stats.get("attributes") if isinstance(raw_stats, dict) else None
+        flat_stats = {}
+        if attrs_raw and isinstance(attrs_raw, dict):
+            for attr_name, value in attrs_raw.items():
+                if isinstance(value, (int, float)):
+                    flat_stats[attr_name] = value
+        elif attrs_raw and isinstance(attrs_raw, list):
+            for a in attrs_raw:
+                if isinstance(a, dict) and "attribute" in a and "modifier" in a:
+                    flat_stats[a["attribute"]] = a["modifier"]
+        elif isinstance(raw_stats, dict):
+            for k, v in raw_stats.items():
+                if k != "id" and isinstance(v, (int, float)):
+                    flat_stats[k] = v
         equipment.append(
             {
                 "id": eq["id"],
@@ -252,7 +272,7 @@ async def character_build(
                 "slot": eq.get("slot", ""),
                 "rarity": item_info.get("rarity", "Basic"),
                 "level": item_info.get("level", 0),
-                "stats": eq.get("stats"),
+                "stats": flat_stats if flat_stats else None,
                 "infusions": eq.get("infusions", []),
                 "upgrades": eq.get("upgrades", []),
             }
@@ -363,12 +383,24 @@ async def character_full(
         for item in items_raw:
             equipment_details[item["id"]] = _sanitize_item(item)
 
-    # Calculate combined stats from equipment
+    # Calculate combined stats from equipment (flatting GW2 format)
     combined_stats = {}
     for eq in equipment_data.get("equipment", []):
-        eq_stats = eq.get("stats", {}) or {}
-        for attr, val in eq_stats.items():
-            combined_stats[attr] = combined_stats.get(attr, 0) + val
+        raw_stats = eq.get("stats") or {}
+        attrs_raw = raw_stats.get("attributes") if isinstance(raw_stats, dict) else None
+        if attrs_raw and isinstance(attrs_raw, dict):
+            for attr_name, value in attrs_raw.items():
+                if isinstance(value, (int, float)):
+                    combined_stats[attr_name] = combined_stats.get(attr_name, 0) + value
+        elif attrs_raw and isinstance(attrs_raw, list):
+            for a in attrs_raw:
+                if isinstance(a, dict) and "attribute" in a and "modifier" in a:
+                    attr_name = a["attribute"]
+                    combined_stats[attr_name] = combined_stats.get(attr_name, 0) + a["modifier"]
+        elif isinstance(raw_stats, dict):
+            for k, v in raw_stats.items():
+                if k != "id" and isinstance(v, (int, float)):
+                    combined_stats[k] = combined_stats.get(k, 0) + v
 
     equipment = []
     for eq in equipment_data.get("equipment", []):
@@ -422,8 +454,11 @@ async def character_inventory(
     api_key = _get_api_key(authorization)
     inv_data = await get_character_inventory(api_key, name)
 
+    # GW2 API returns a list of bags directly (not a dict with "bags" key)
+    bags_raw = inv_data if isinstance(inv_data, list) else inv_data.get("bags", [])
+
     item_ids = []
-    for bag in inv_data.get("bags", []):
+    for bag in bags_raw:
         for slot in (bag.get("inventory", []) if isinstance(bag, dict) else []):
             if slot and slot.get("id"):
                 item_ids.append(slot["id"])
@@ -435,7 +470,7 @@ async def character_inventory(
             items_info[item["id"]] = _sanitize_item(item)
 
     bags = []
-    for bag in inv_data.get("bags", []):
+    for bag in bags_raw:
         bag_items = []
         for slot in (bag.get("inventory", []) if isinstance(bag, dict) else []):
             if not slot:
@@ -621,11 +656,22 @@ async def deepseek_analyze_build(
             "stats": eq.get("stats"),
         })
 
+    # Try to fetch metabattle build info
+    profession = core.get("profession", "")
+    metabattle_content = ""
+    try:
+        build_name = get_metabattle_build_name(profession)
+        build_url = f"https://metabattle.com/wiki/Build:{build_name}"
+        metabattle_content = await fetch_metabattle_build(build_url)
+    except Exception:
+        metabattle_content = ""
+
     prompt = analyze_build_text(
         name=core.get("name", name),
-        profession=core.get("profession", ""),
+        profession=profession,
         specializations=specializations,
         equipment=equipment,
+        metabattle_content=metabattle_content,
     )
 
     deepseek_api_key = body.get("deepseek_api_key", "")
@@ -666,8 +712,9 @@ async def deepseek_analyze_inventory(
         prompt += f"\n\n---\n\n{INVENTORY_INSTRUCTIONS}"
     else:
         inv_data = await get_character_inventory(api_key, name)
+        bags_raw = inv_data if isinstance(inv_data, list) else inv_data.get("bags", [])
         item_ids = []
-        for bag in inv_data.get("bags", []):
+        for bag in bags_raw:
             for slot in (bag.get("inventory", []) if isinstance(bag, dict) else []):
                 if slot and slot.get("id"):
                     item_ids.append(slot["id"])
@@ -679,7 +726,7 @@ async def deepseek_analyze_inventory(
                 items_info[item["id"]] = _sanitize_item(item)
 
         bags = []
-        for bag in inv_data.get("bags", []):
+        for bag in bags_raw:
             bag_items = []
             for slot in (bag.get("inventory", []) if isinstance(bag, dict) else []):
                 if not slot:

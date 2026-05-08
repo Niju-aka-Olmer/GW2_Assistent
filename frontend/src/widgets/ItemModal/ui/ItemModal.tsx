@@ -20,20 +20,6 @@ interface ItemModalProps {
   onClose: () => void;
 }
 
-const FLAGS_RU: Record<string, string> = {
-  'AccountBound': 'Привязано к аккаунту',
-  'AccountBindOnUse': 'Привязывается при использовании',
-  'Soulbound': 'Привязано к персонажу',
-  'SoulbindOnUse': 'Привязывается при надевании',
-  'SoulbindOnAcquire': 'Привязывается при получении',
-  'Unique': 'Уникальное',
-  'NotSellable': 'Не продаётся',
-  'NoSell': 'Не продаётся',
-  'HideSuffix': 'Скрывать суффикс',
-  'MonsterOnly': 'Только для монстров',
-  'Previewable': 'Можно предпросмотреть',
-};
-
 const SLOT_RU: Record<string, string> = {
   Helm: 'Шлем',
   Shoulders: 'Наплечники',
@@ -80,26 +66,6 @@ const DAMAGE_TYPE_RU: Record<string, string> = {
   Light: 'Свет',
 };
 
-const TRINKET_TYPE_RU: Record<string, string> = {
-  Accessory: 'Аксессуар',
-  Ring: 'Кольцо',
-  Amulet: 'Амулет',
-};
-
-const INFUSION_FLAGS_RU: Record<string, string> = {
-  Offensive: 'Атакующее',
-  Defensive: 'Защитное',
-  Utility: 'Утилитарное',
-  Infusion: 'Инфузия',
-};
-
-const ITEM_FLAGS_RU: Record<string, string> = {
-  AccountBound: 'Аккаунт',
-  AccountBindOnUse: 'При использовании',
-  Soulbound: 'Персонаж',
-  SoulbindOnUse: 'При надевании',
-};
-
 export function ItemModal({ item, slot, onClose }: ItemModalProps) {
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') onClose();
@@ -136,11 +102,6 @@ export function ItemModal({ item, slot, onClose }: ItemModalProps) {
 
   const hasAttributes = allAttributes.length > 0;
 
-  const knownFlags = (item.flags || [])
-    .map((f) => FLAGS_RU[f])
-    .filter(Boolean);
-  const flagsText = knownFlags.length > 0 ? knownFlags.join(', ') : '';
-
   const typeInfo = item.weight_class
     ? `${getItemTypeRu(item.type)} (${item.weight_class === 'Heavy' ? 'Тяжёлая' : item.weight_class === 'Medium' ? 'Средняя' : item.weight_class === 'Light' ? 'Лёгкая' : item.weight_class})`
     : getItemTypeRu(item.type);
@@ -155,29 +116,6 @@ export function ItemModal({ item, slot, onClose }: ItemModalProps) {
 
   const damageType = item.weapon_damage_type
     ? DAMAGE_TYPE_RU[item.weapon_damage_type] || item.weapon_damage_type
-    : null;
-
-  const trinketType = item.trinket_type
-    ? TRINKET_TYPE_RU[item.trinket_type] || item.trinket_type
-    : null;
-
-  const containerType = item.container_type
-    ? getItemTypeRu(item.container_type)
-    : null;
-
-  const consumableType = item.consumable_type
-    ? getItemTypeRu(item.consumable_type)
-    : null;
-
-  const bindingFlags = (item.flags || []).filter(f =>
-    ['AccountBound', 'AccountBindOnUse', 'Soulbound', 'SoulbindOnUse', 'SoulbindOnAcquire'].includes(f)
-  );
-  const bindingText = bindingFlags.length > 0
-    ? bindingFlags.map(f => ITEM_FLAGS_RU[f] || f).join(', ')
-    : '';
-
-  const prefixLabel = item.suffix && !item.flags?.includes('HideSuffix')
-    ? item.suffix
     : null;
 
   return (
@@ -268,18 +206,18 @@ export function ItemModal({ item, slot, onClose }: ItemModalProps) {
               </div>
             )}
 
-            {item.armor_class && (
+            {!weaponType && item.armor_class && (
               <DetailRow
                 label="Класс брони"
                 value={item.armor_class === 'Heavy' ? 'Тяжёлая броня' : item.armor_class === 'Medium' ? 'Средняя броня' : item.armor_class === 'Light' ? 'Лёгкая броня' : item.armor_class}
               />
             )}
 
-            {armorType && (
+            {!weaponType && armorType && (
               <DetailRow label="Тип" value={armorType} />
             )}
 
-            {item.armor_defense != null && item.armor_defense > 0 && (
+            {!weaponType && item.armor_defense != null && item.armor_defense > 0 && (
               <DetailRow label="Защита" value={String(item.armor_defense)} />
             )}
 
@@ -287,83 +225,14 @@ export function ItemModal({ item, slot, onClose }: ItemModalProps) {
               <DetailRow label="Тип оружия" value={weaponType} />
             )}
 
-            {damageType && (
+            {weaponType && damageType && (
               <DetailRow label="Тип урона" value={damageType} />
             )}
 
             {item.weapon_min_power != null && item.weapon_max_power != null && (
               <DetailRow label="Урон" value={`${item.weapon_min_power} – ${item.weapon_max_power}`} />
             )}
-
-            {trinketType && (
-              <DetailRow label="Тип аксессуара" value={trinketType} />
-            )}
-
-            {item.bag_size != null && item.bag_size > 0 && (
-              <DetailRow label="Размер сумки" value={`${item.bag_size} слотов`} />
-            )}
-
-            {containerType && (
-              <DetailRow label="Тип контейнера" value={containerType} />
-            )}
-
-            {consumableType && (
-              <DetailRow label="Тип расходника" value={consumableType} />
-            )}
-
-            {item.gathering_tool_type && (
-              <DetailRow label="Тип инструмента" value={item.gathering_tool_type} />
-            )}
-
-            {item.gizmo_type && (
-              <DetailRow label="Тип гизмо" value={item.gizmo_type} />
-            )}
-
-            {prefixLabel && (
-              <DetailRow label="Префикс" value={prefixLabel} />
-            )}
-
-            {item.default_skin != null && item.default_skin > 0 && (
-              <DetailRow label="ID скина" value={`#${item.default_skin}`} />
-            )}
-
-            {item.suffix_item_id != null && item.suffix_item_id > 0 && (
-              <DetailRow label="ID суффикса" value={String(item.suffix_item_id)} />
-            )}
-
-            {item.infusion_slots && item.infusion_slots.length > 0 && (
-              <div className="flex items-start gap-2 py-1">
-                <span className="text-xs text-text-secondary min-w-[140px] pt-0.5">Слоты инфузий:</span>
-                <div className="flex flex-wrap gap-1">
-                  {item.infusion_slots.map((slot, i) => {
-                    const flags = slot.flags?.map(f => INFUSION_FLAGS_RU[f] || f).join(', ') || '';
-                    return (
-                      <span key={i} className="text-xs bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded-full border border-indigo-500/20">
-                        {flags || `Слот ${i + 1}`}
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {bindingText && (
-              <DetailRow label="Привязка" value={bindingText} />
-            )}
-
-            {flagsText && (
-              <DetailRow label="Флаги" value={flagsText} />
-            )}
           </div>
-
-          {item.chat_link && (
-            <div className="pt-3 border-t border-border-primary mt-3">
-              <p className="text-xs text-text-secondary mb-1">Чат-ссылка (для передачи в игре):</p>
-              <p className="text-xs text-text-tertiary font-mono select-all bg-bg-tertiary px-2 py-1 rounded break-all">
-                {item.chat_link}
-              </p>
-            </div>
-          )}
         </div>
       </div>
     </div>

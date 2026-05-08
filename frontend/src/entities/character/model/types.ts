@@ -41,7 +41,7 @@ export interface CharacterFullResponse {
   skills: Record<string, FullSkill>;
   equipment: FullEquipmentItem[];
   crafting: CraftingDiscipline[];
-  attributes: Record<string, number>;
+  combined_stats: Record<string, number>;
 }
 
 export interface FullSpecialization {

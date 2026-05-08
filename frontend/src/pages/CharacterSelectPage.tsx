@@ -49,7 +49,7 @@ const COIN_ID = 1;
 function CharacterCard({ character }: { character: CharacterSummary }) {
   return (
     <Link
-      to={`/build/${encodeURIComponent(character.name)}`}
+      to={`/character/${encodeURIComponent(character.name)}`}
       className="block group"
     >
       <Card className="flex flex-col items-center p-6 transition-all hover:scale-[1.02] hover:shadow-xl hover:border-[#c9a84c]/30">

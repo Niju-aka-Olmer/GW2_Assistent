@@ -190,10 +190,10 @@ export function CharacterPage() {
     );
   }
 
-  const attrEntries = Object.entries(data.attributes || {})
+  const attrEntries = Object.entries(data.combined_stats || {})
     .filter(([, v]) => v > 0)
     .sort(([a], [b]) => {
-      const order = ['Power', 'Precision', 'Toughness', 'Vitality', 'Ferocity', 'ConditionDamage', 'Expertise', 'Concentration', 'HealingPower', 'ConditionDuration', 'BoonDuration', 'AgonyResistance', 'Armor', 'Health', 'CritDamage'];
+      const order = ['Power', 'Precision', 'Toughness', 'Vitality', 'Ferocity', 'ConditionDamage', 'Expertise', 'Concentration', 'HealingPower', 'Healing', 'ConditionDuration', 'BoonDuration', 'AgonyResistance', 'Armor', 'Health', 'CritDamage'];
       return order.indexOf(a) - order.indexOf(b);
     });
 
@@ -323,7 +323,7 @@ export function CharacterPage() {
 
       {!data.specializations?.length && !Object.keys(data.skills || {}).length && !attrEntries.length && (
         <Card>
-          <p className="text-text-secondary text-center py-8">Нет данных о персонаже</p>
+          <p className="text-text-secondary text-center py-8">Нет данных о характеристиках этого персонажа</p>
         </Card>
       )}
     </Layout>
