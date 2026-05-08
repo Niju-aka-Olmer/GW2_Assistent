@@ -1,7 +1,9 @@
+import asyncio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.endpoints import router
+from api.gw2_client import preload_item_name_cache
 
 app = FastAPI(
     title="GW2 Assistant API",
@@ -22,6 +24,11 @@ app.add_middleware(
 )
 
 app.include_router(router)
+
+
+@app.on_event("startup")
+async def startup():
+    asyncio.create_task(preload_item_name_cache())
 
 
 @app.get("/health")

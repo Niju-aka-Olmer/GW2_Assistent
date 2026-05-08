@@ -302,6 +302,25 @@ _name_cache_lock = asyncio.Lock()
 _name_cache_building = False
 
 
+async def preload_item_name_cache():
+    """Preload item name cache in background on server startup."""
+    global _item_name_cache_data, _name_cache_building
+    try:
+        cached = _load_name_cache_from_disk()
+        if cached is not None and len(cached) > 10000:
+            _item_name_cache_data = cached
+            return
+        async with _name_cache_lock:
+            if not _name_cache_building:
+                _name_cache_building = True
+                try:
+                    _item_name_cache_data = await _build_name_cache()
+                finally:
+                    _name_cache_building = False
+    except Exception:
+        pass
+
+
 async def search_items_by_name(query: str, page: int = 0, page_size: int = 24) -> dict:
     global _item_name_cache_data, _name_cache_building
 
