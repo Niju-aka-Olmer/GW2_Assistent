@@ -1,7 +1,7 @@
 import httpx
 from typing import Any, Optional
 from utils.errors import GW2APIError
-from cache.memory_cache import character_cache, item_cache, price_cache, token_cache, item_name_cache, item_id_list_cache
+from cache.memory_cache import MemoryCache, character_cache, item_cache, price_cache, token_cache, item_name_cache, item_id_list_cache
 
 GW2_API_BASE = "https://api.guildwars2.com/v2"
 BATCH_SIZE = 200
