@@ -12,15 +12,15 @@ import { gw2Client } from '../shared/api/gw2Client';
 import type { CharacterSummary } from '../entities/character/model/types';
 
 const PROFESSION_ICONS: Record<string, string> = {
-  Guardian: 'https://render.guildwars2.com/file/60E15CD70B0D02D53BA0C70ADB17077A90184259/156637.png',
-  Warrior: 'https://render.guildwars2.com/file/BD718D0C0B909F3107035E04EAB5D31C4B5AFB57/156638.png',
-  Engineer: 'https://render.guildwars2.com/file/0AFA0EA806E7B77FF0F3C9F6D45039A7B80F096E/156636.png',
-  Ranger: 'https://render.guildwars2.com/file/036C983816CD36EC6D65B83EAEEB09D7AD0F7719/156635.png',
-  Thief: 'https://render.guildwars2.com/file/0EC50A0C9304B87D4F4AAE99AE71F6DB350D0A5C/156634.png',
-  Elementalist: 'https://render.guildwars2.com/file/6B0872D0ACD29BBBFA789B2595C74A4F48CF0564/156633.png',
-  Mesmer: 'https://render.guildwars2.com/file/38AF76AA1AEB0FD7DD0A7EB2E05AF2020D35542A/156632.png',
-  Necromancer: 'https://render.guildwars2.com/file/F4B50E47F3B9C0E843F70E0DBBF0EAA04C3F0B0C/156631.png',
-  Revenant: 'https://render.guildwars2.com/file/EF0431093BE00E62C3FC2359167DAA0A2A467B4A/1012719.png',
+  Guardian: 'https://wiki.guildwars2.com/images/thumb/3/30/Guardian_icon_%28highres%29.png/480px-Guardian_icon_%28highres%29.png',
+  Warrior: 'https://wiki.guildwars2.com/images/thumb/7/76/Warrior_icon_%28highres%29.png/480px-Warrior_icon_%28highres%29.png',
+  Engineer: 'https://wiki.guildwars2.com/images/thumb/5/53/Engineer_icon_%28highres%29.png/480px-Engineer_icon_%28highres%29.png',
+  Ranger: 'https://wiki.guildwars2.com/images/thumb/c/c7/Ranger_icon_%28highres%29.png/480px-Ranger_icon_%28highres%29.png',
+  Thief: 'https://wiki.guildwars2.com/images/thumb/3/31/Thief_icon_%28highres%29.png/480px-Thief_icon_%28highres%29.png',
+  Elementalist: 'https://wiki.guildwars2.com/images/thumb/c/c0/Elementalist_icon_%28highres%29.png/480px-Elementalist_icon_%28highres%29.png',
+  Mesmer: 'https://wiki.guildwars2.com/images/thumb/0/0a/Mesmer_icon_%28highres%29.png/480px-Mesmer_icon_%28highres%29.png',
+  Necromancer: 'https://wiki.guildwars2.com/images/thumb/2/27/Necromancer_icon_%28highres%29.png/480px-Necromancer_icon_%28highres%29.png',
+  Revenant: 'https://wiki.guildwars2.com/images/thumb/2/2d/Revenant_icon_%28highres%29.png/480px-Revenant_icon_%28highres%29.png',
 };
 
 const RACE_RU: Record<string, string> = {
@@ -49,16 +49,16 @@ function CharacterCard({ character }: { character: CharacterSummary }) {
       to={`/build/${encodeURIComponent(character.name)}`}
       className="block group"
     >
-      <Card className="flex items-center gap-4 p-4 transition-all hover:scale-[1.02] hover:shadow-xl hover:border-[#c9a84c]/30">
-        <div className="flex-shrink-0 w-16 h-16 bg-[#1e212d] rounded-xl overflow-hidden flex items-center justify-center border border-[#2d3246]">
+      <Card className="flex flex-col items-center p-6 transition-all hover:scale-[1.02] hover:shadow-xl hover:border-[#c9a84c]/30">
+        <div className="w-44 h-44 bg-[#1e212d] rounded-xl overflow-hidden flex items-center justify-center border border-[#2d3246] mb-4">
           {PROFESSION_ICONS[character.profession] ? (
-            <img src={PROFESSION_ICONS[character.profession]} alt={character.profession} className="w-14 h-14" />
+            <img src={PROFESSION_ICONS[character.profession]} alt={character.profession} className="w-full h-full object-contain" />
           ) : (
-            <span className="text-3xl">?</span>
+            <span className="text-4xl">?</span>
           )}
         </div>
 
-        <div className="flex-1 min-w-0">
+        <div className="text-center w-full">
           <h2 className="font-bold text-lg text-text-primary group-hover:text-[#f3c623] transition-colors truncate">
             {character.name}
           </h2>
@@ -71,11 +71,9 @@ function CharacterCard({ character }: { character: CharacterSummary }) {
             <span>Ур. {character.level}</span>
           </p>
 
-          {character.coins > 0 && (
-            <div className="mt-1">
-              <CoinBadge value={character.coins} />
-            </div>
-          )}
+          <div className="mt-2">
+            <CoinBadge value={character.coins} />
+          </div>
         </div>
       </Card>
     </Link>
@@ -237,7 +235,7 @@ export function CharacterSelectPage() {
       )}
 
       {!isLoading && !isError && data?.characters && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
           {data.characters.map((character) => (
             <CharacterCard key={character.name} character={character} />
           ))}
