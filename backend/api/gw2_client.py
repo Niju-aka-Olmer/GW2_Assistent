@@ -1,12 +1,19 @@
+import asyncio
+import json
+import os
+import logging
+
 import httpx
 from typing import Any, Optional
 from utils.errors import GW2APIError
 from cache.memory_cache import MemoryCache, character_cache, item_cache, price_cache, token_cache, item_name_cache, item_id_list_cache
 
+logger = logging.getLogger(__name__)
+
 GW2_API_BASE = "https://api.guildwars2.com/v2"
 BATCH_SIZE = 200
 REQUEST_TIMEOUT = 15.0
-MAX_CONCURRENT_BATCHES = 15  # Concurrent request limit for building name cache
+MAX_CONCURRENT_BATCHES = 30  # Concurrent request limit for building name cache
 
 
 async def _get(
@@ -223,13 +230,11 @@ async def get_commerce_exchange(quantity: int, exchange_type: str = "coins") -> 
         return await _get("commerce/exchange/gems", params={"quantity": quantity})
 
 
-import asyncio
-import json
-import os
-
 ITEM_NAMES_CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "cache")
 ITEM_NAMES_CACHE_FILE = os.path.join(ITEM_NAMES_CACHE_DIR, "item_names.json")
-_item_name_cache_data: dict[str, dict] | None = None  # In-memory cache (process-level)
+_item_name_cache_data: dict[str, dict] | None = None
+_name_cache_lock = asyncio.Lock()
+_name_cache_building = False
 
 
 def _get_name_cache_path() -> str:
@@ -258,12 +263,13 @@ def _save_name_cache_to_disk(data: dict[str, dict]) -> None:
 
 
 async def _build_name_cache() -> dict[str, dict]:
-    """Build the item name cache concurrently and save to disk."""
     all_ids = await get_all_item_ids()
 
     cached = _load_name_cache_from_disk()
     if cached is not None and len(cached) > 10000:
         return cached
+
+    logger.info(f"Building item name cache: {len(all_ids)} items in {len(all_ids) // BATCH_SIZE + 1} batches ({MAX_CONCURRENT_BATCHES} concurrent)")
 
     sem = asyncio.Semaphore(MAX_CONCURRENT_BATCHES)
 
@@ -295,20 +301,17 @@ async def _build_name_cache() -> dict[str, dict]:
         merged.update(r)
 
     _save_name_cache_to_disk(merged)
+    logger.info(f"Item name cache built: {len(merged)} items saved to {ITEM_NAMES_CACHE_FILE}")
     return merged
 
 
-_name_cache_lock = asyncio.Lock()
-_name_cache_building = False
-
-
 async def preload_item_name_cache():
-    """Preload item name cache in background on server startup."""
     global _item_name_cache_data, _name_cache_building
     try:
         cached = _load_name_cache_from_disk()
         if cached is not None and len(cached) > 10000:
             _item_name_cache_data = cached
+            logger.info(f"Item name cache loaded from disk: {len(cached)} items")
             return
         async with _name_cache_lock:
             if not _name_cache_building:
@@ -317,8 +320,8 @@ async def preload_item_name_cache():
                     _item_name_cache_data = await _build_name_cache()
                 finally:
                     _name_cache_building = False
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error(f"Failed to preload item name cache: {e}")
 
 
 async def search_items_by_name(query: str, page: int = 0, page_size: int = 24) -> dict:
@@ -331,18 +334,29 @@ async def search_items_by_name(query: str, page: int = 0, page_size: int = 24) -
     if _item_name_cache_data is None:
         _item_name_cache_data = _load_name_cache_from_disk()
 
+    if _item_name_cache_data is not None and len(_item_name_cache_data) >= 10000:
+        return _do_search(query, page, page_size)
+
+    if _name_cache_building:
+        return {"building": True, "retry_after": 15, "items": [], "total": 0, "page": page, "page_size": page_size, "has_more": False}
+
+    async with _name_cache_lock:
+        if _name_cache_building:
+            return {"building": True, "retry_after": 15, "items": [], "total": 0, "page": page, "page_size": page_size, "has_more": False}
+        _name_cache_building = True
+        try:
+            _item_name_cache_data = await _build_name_cache()
+        finally:
+            _name_cache_building = False
+
     if _item_name_cache_data is None or len(_item_name_cache_data) < 10000:
-        async with _name_cache_lock:
-            if not _name_cache_building:
-                _name_cache_building = True
-                try:
-                    _item_name_cache_data = await _build_name_cache()
-                finally:
-                    _name_cache_building = False
+        return {"building": True, "retry_after": 30, "items": [], "total": 0, "page": page, "page_size": page_size, "has_more": False}
 
-        if _item_name_cache_data is None or len(_item_name_cache_data) < 10000:
-            return {"items": [], "total": 0, "page": page, "page_size": page_size, "has_more": False}
+    return _do_search(query, page, page_size)
 
+
+def _do_search(query: str, page: int, page_size: int) -> dict:
+    global _item_name_cache_data
     query_lower = query.lower().strip()
     matches = []
     for sid, info in _item_name_cache_data.items():

@@ -324,9 +324,7 @@ async def commerce_search(
     q: str = Query(..., description="Search query"),
     page: int = Query(0, ge=0),
     page_size: int = Query(24, ge=1, le=100),
-    authorization: Optional[str] = Header(None),
 ):
-    _get_api_key(authorization)
     result = await search_items_by_name(q, page=page, page_size=page_size)
     return result
 

@@ -32,3 +32,10 @@ Thumbs.db
 
 # Cache
 .cache/
+
+# Generated item name cache
+backend/cache/item_names.json
+
+# Temporary test files
+test_*.py
+/tmp/

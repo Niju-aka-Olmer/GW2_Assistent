@@ -18,6 +18,16 @@ interface SearchItem {
   type: string;
 }
 
+interface SearchResult {
+  items: SearchItem[];
+  total: number;
+  page: number;
+  page_size: number;
+  has_more: boolean;
+  building?: boolean;
+  retry_after?: number;
+}
+
 interface PriceInfo {
   id: number;
   buys: { unit_price: number; quantity: number };
@@ -74,13 +84,25 @@ export function TradingPostPage() {
   const searchQuery_ = useQuery({
     queryKey: ['commerce-search', debouncedQuery, page],
     queryFn: async () => {
-      if (!debouncedQuery.trim()) return { items: [], total: 0, page: 0, page_size: 24, has_more: false };
+      if (!debouncedQuery.trim()) return { items: [], total: 0, page: 0, page_size: 24, has_more: false } as SearchResult;
       const { data } = await apiClient.get('/commerce/search', {
         params: { q: debouncedQuery, page, page_size: 24 },
+        timeout: 60000,
       });
-      return data as { items: SearchItem[]; total: number; page: number; page_size: number; has_more: boolean };
+      return data as SearchResult;
     },
     enabled: debouncedQuery.length >= 2,
+    retry: (failureCount, error: any) => {
+      if (error?.response?.data?.building) return false;
+      return failureCount < 2;
+    },
+    refetchInterval: (query) => {
+      const data = query.state.data as SearchResult | undefined;
+      if (data?.building && data?.retry_after) {
+        return data.retry_after * 1000;
+      }
+      return false;
+    },
   });
 
   const pricesQuery = useQuery({
@@ -211,6 +233,22 @@ export function TradingPostPage() {
               </div>
             )}
 
+            {searchQuery_.data?.building && !searchQuery_.isLoading && (
+              <div className="flex flex-col items-center justify-center py-8 text-sm text-[#c9a84c]">
+                <Spinner className="w-6 h-6 mb-3" />
+                <p>База данных предметов загружается...</p>
+                <p className="text-text-tertiary text-xs mt-1">
+                  Это займёт около минуты при первом запуске
+                </p>
+              </div>
+            )}
+
+            {searchQuery_.isError && !searchQuery_.data?.building && (
+              <div className="text-center py-8 text-sm text-red-400">
+                Ошибка при поиске. Проверьте подключение к GW2 API.
+              </div>
+            )}
+
             {searchQuery_.data?.items && searchQuery_.data.items.length > 0 && (
               <div className="mt-4">
                 <div className="flex items-center justify-between mb-2">
@@ -284,7 +322,7 @@ export function TradingPostPage() {
               </div>
             )}
 
-            {searchQuery_.data?.items?.length === 0 && debouncedQuery.length >= 2 && !searchQuery_.isLoading && (
+            {searchQuery_.data?.items?.length === 0 && debouncedQuery.length >= 2 && !searchQuery_.isLoading && !searchQuery_.data?.building && (
               <p className="text-text-secondary text-center py-8 text-sm">
                 Ничего не найдено
               </p>
