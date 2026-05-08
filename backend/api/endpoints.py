@@ -1,6 +1,10 @@
+import asyncio
+import logging
 from fastapi import APIRouter, Header, HTTPException, Query
 from fastapi.responses import Response
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 from services.auth_service import verify_api_key
 from api.gw2_client import (
@@ -931,17 +935,35 @@ async def account_mastery_points(authorization: Optional[str] = Header(None)):
 @router.get("/account/collections")
 async def account_collections(authorization: Optional[str] = Header(None)):
     api_key = _get_api_key(authorization)
-    dye_ids, skin_ids, mini_ids = await asyncio.gather(
+
+    def _safe_list(result, default=None):
+        if isinstance(result, Exception):
+            logger.warning(f"Collections request failed: {result}")
+            return default if default is not None else []
+        if not isinstance(result, list):
+            logger.warning(f"Collections unexpected type: {type(result)}")
+            return default if default is not None else []
+        return result
+
+    results1 = await asyncio.gather(
         get_account_dyes(api_key),
         get_account_skins(api_key),
         get_account_minis(api_key),
+        return_exceptions=True,
     )
-    # Fetch finishers, gliders, mailcarriers
-    finishers_raw, glider_ids, mailcarrier_ids = await asyncio.gather(
+    dye_ids = _safe_list(results1[0], [])
+    skin_ids = _safe_list(results1[1], [])
+    mini_ids = _safe_list(results1[2], [])
+
+    results2 = await asyncio.gather(
         get_account_finishers(api_key),
         get_account_gliders(api_key),
         get_account_mailcarriers(api_key),
+        return_exceptions=True,
     )
+    finishers_raw = _safe_list(results2[0], [])
+    glider_ids = _safe_list(results2[1], [])
+    mailcarrier_ids = _safe_list(results2[2], [])
 
     # Fetch details in batch
     skin_details_map = {}
@@ -951,33 +973,52 @@ async def account_collections(authorization: Optional[str] = Header(None)):
     mailcarrier_details_map = {}
 
     if skin_ids:
-        skins = await get_skin_details(skin_ids)
-        for s in skins:
-            skin_details_map[s["id"]] = {"name": s.get("name", ""), "icon": s.get("icon", ""), "rarity": s.get("rarity", ""), "type": s.get("type", "")}
+        try:
+            skins = await get_skin_details(skin_ids)
+            for s in skins:
+                skin_details_map[s["id"]] = {"name": s.get("name", ""), "icon": s.get("icon", ""), "rarity": s.get("rarity", ""), "type": s.get("type", "")}
+        except Exception as e:
+            logger.warning(f"Failed to fetch skin details: {e}")
+
     if mini_ids:
-        minis = await get_mini_details(mini_ids)
-        for m in minis:
-            mini_details_map[m["id"]] = {"name": m.get("name", ""), "icon": m.get("icon", "")}
+        try:
+            minis = await get_mini_details(mini_ids)
+            for m in minis:
+                mini_details_map[m["id"]] = {"name": m.get("name", ""), "icon": m.get("icon", "")}
+        except Exception as e:
+            logger.warning(f"Failed to fetch mini details: {e}")
+
     if finishers_raw:
-        fin_ids = [f.get("id") for f in finishers_raw if f.get("id")]
+        fin_ids = [f.get("id") for f in finishers_raw if isinstance(f, dict) and f.get("id")]
         if fin_ids:
-            finishers = await get_finisher_details(fin_ids)
-            for f in finishers:
-                finisher_details_map[f["id"]] = {"name": f.get("name", ""), "icon": f.get("icon", "")}
+            try:
+                finishers = await get_finisher_details(fin_ids)
+                for f in finishers:
+                    finisher_details_map[f["id"]] = {"name": f.get("name", ""), "icon": f.get("icon", "")}
+            except Exception as e:
+                logger.warning(f"Failed to fetch finisher details: {e}")
+
     if glider_ids:
-        gliders = await get_glider_details(glider_ids)
-        for g in gliders:
-            glider_details_map[g["id"]] = {"name": g.get("name", ""), "icon": g.get("icon", "")}
+        try:
+            gliders = await get_glider_details(glider_ids)
+            for g in gliders:
+                glider_details_map[g["id"]] = {"name": g.get("name", ""), "icon": g.get("icon", "")}
+        except Exception as e:
+            logger.warning(f"Failed to fetch glider details: {e}")
+
     if mailcarrier_ids:
-        carriers = await get_mailcarrier_details(mailcarrier_ids)
-        for c in carriers:
-            mailcarrier_details_map[c["id"]] = {"name": c.get("name", ""), "icon": c.get("icon", "")}
+        try:
+            carriers = await get_mailcarrier_details(mailcarrier_ids)
+            for c in carriers:
+                mailcarrier_details_map[c["id"]] = {"name": c.get("name", ""), "icon": c.get("icon", "")}
+        except Exception as e:
+            logger.warning(f"Failed to fetch mail carrier details: {e}")
 
     return {
         "dye_count": len(dye_ids),
         "skins": [{"id": sid, **skin_details_map.get(sid, {"name": f"Skin {sid}", "icon": ""})} for sid in skin_ids[:500]],
         "minis": [{"id": mid, **mini_details_map.get(mid, {"name": f"Mini {mid}", "icon": ""})} for mid in mini_ids[:500]],
-        "finishers": [{"id": f.get("id"), **finisher_details_map.get(f.get("id"), {"name": f.get("name", f"Finisher {f.get('id')}"), "icon": ""})} for f in finishers_raw[:200]],
+        "finishers": [{"id": f.get("id"), **finisher_details_map.get(f.get("id"), {"name": f"Finisher {f.get('id')}", "icon": ""})} for f in finishers_raw[:200] if isinstance(f, dict)],
         "gliders": [{"id": gid, **glider_details_map.get(gid, {"name": f"Glider {gid}", "icon": ""})} for gid in glider_ids[:200]],
         "mailcarriers": [{"id": cid, **mailcarrier_details_map.get(cid, {"name": f"Mail Carrier {cid}", "icon": ""})} for cid in mailcarrier_ids[:200]],
     }

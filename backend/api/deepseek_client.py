@@ -12,7 +12,7 @@ async def analyze(
     prompt: str,
     api_key: str,
     temperature: float = 0.3,
-    max_tokens: int = 1024,
+    max_tokens: int = 4096,
 ) -> str:
     if not api_key:
         api_key = config.deepseek_api_key or ""

@@ -73,7 +73,8 @@ function renderInline(text: string): React.ReactNode[] {
     if (match[1]) {
       parts.push(
         <img key={key++} src={match[3]} alt={match[2]}
-             className="inline-block w-5 h-5 align-middle mr-1" />
+             className="inline-block w-8 h-8 align-middle mr-1 rounded"
+             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
       );
     } else if (match[4]) {
       parts.push(<strong key={key++} className="font-semibold text-text-primary">{match[5]}</strong>);
