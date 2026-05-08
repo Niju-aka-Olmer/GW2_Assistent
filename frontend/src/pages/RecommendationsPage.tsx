@@ -5,8 +5,10 @@ import { Card } from '../shared/ui/Card';
 import { Button } from '../shared/ui/Button';
 import { Spinner } from '../shared/ui/Spinner';
 import { Tabs } from '../shared/ui/Tabs';
+import { SimpleMarkdown } from '../shared/ui/SimpleMarkdown';
 import { useCharacters } from '../entities/character/api/getCharacters';
 import { deepseekClient } from '../shared/api/deepseekClient';
+import { useAnalysisHistory } from '../shared/hooks/useAnalysisHistory';
 
 const ANALYSIS_TABS = [
   { id: 'build', label: 'Анализ билда' },
@@ -24,15 +26,21 @@ export function RecommendationsPage() {
   const [deepseekKey, setDeepseekKey] = useState('');
   const [showKeyInput, setShowKeyInput] = useState(false);
   const [inventoryTarget, setInventoryTarget] = useState<'inventory' | 'bank'>('inventory');
+  const [viewingHistoryId, setViewingHistoryId] = useState<string | null>(null);
 
   const { data: charsData, isLoading: charsLoading } = useCharacters();
   const characters = charsData?.characters || [];
+
+  const { history, saveAnalysis, clearHistory } = useAnalysisHistory();
 
   const buildMutation = useMutation({
     mutationFn: (name: string) => deepseekClient.analyzeBuild(
       name,
       deepseekKey.trim() || undefined,
     ),
+    onSuccess: (data, name) => {
+      saveAnalysis({ name, type: 'build', analysis: data.analysis });
+    },
   });
 
   const inventoryMutation = useMutation({
@@ -41,10 +49,14 @@ export function RecommendationsPage() {
       target,
       deepseekKey.trim() || undefined,
     ),
+    onSuccess: (data, { name, target }) => {
+      saveAnalysis({ name, type: target, analysis: data.analysis });
+    },
   });
 
   const handleAnalyze = () => {
     if (!selectedChar) return;
+    setViewingHistoryId(null);
     if (analysisTab === 'build') {
       buildMutation.mutate(selectedChar);
     } else {
@@ -53,10 +65,15 @@ export function RecommendationsPage() {
   };
 
   const isAnalyzing = buildMutation.isPending || inventoryMutation.isPending;
-  const result = analysisTab === 'build' ? buildMutation.data : inventoryMutation.data;
-  const error = analysisTab === 'build' ? buildMutation.error : inventoryMutation.error;
 
-  const resultContent = result?.analysis || '';
+  const currentResult = analysisTab === 'build' ? buildMutation.data : inventoryMutation.data;
+  const currentError = analysisTab === 'build' ? buildMutation.error : inventoryMutation.error;
+
+  const historyEntry = viewingHistoryId ? history.find(h => h.id === viewingHistoryId) : null;
+
+  const displayResult = historyEntry?.analysis || currentResult?.analysis || '';
+  const displayTab = historyEntry?.type === 'build' ? 'build' : 'inventory';
+  const displayChar = historyEntry?.name || selectedChar;
 
   return (
     <Layout>
@@ -113,7 +130,7 @@ export function RecommendationsPage() {
                         key={opt.id}
                         className={`flex-1 px-3 py-1.5 text-sm rounded-lg transition-colors ${
                           inventoryTarget === opt.id
-                            ? 'bg-indigo-500 text-white'
+                            ? 'bg-[#c9a84c] text-[#0a0b0f] font-semibold'
                             : 'bg-bg-tertiary text-text-secondary hover:bg-bg-hover'
                         }`}
                         onClick={() => setInventoryTarget(opt.id)}
@@ -151,6 +168,43 @@ export function RecommendationsPage() {
               >
                 {isAnalyzing ? 'Анализирую...' : 'Анализировать'}
               </Button>
+
+              {history.length > 0 && (
+                <div className="pt-3 border-t border-border-primary">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                      История ({history.length})
+                    </h3>
+                    <button
+                      onClick={clearHistory}
+                      className="text-[10px] text-text-tertiary hover:text-red-400 transition-colors"
+                    >
+                      Очистить
+                    </button>
+                  </div>
+                  <div className="space-y-1.5">
+                    {history.map((entry) => (
+                      <button
+                        key={entry.id}
+                        onClick={() => setViewingHistoryId(viewingHistoryId === entry.id ? null : entry.id)}
+                        className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs transition-all ${
+                          viewingHistoryId === entry.id
+                            ? 'bg-[#c9a84c]/10 text-[#f3c623] border border-[#c9a84c]/30'
+                            : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary border border-transparent'
+                        }`}
+                      >
+                        <div className="font-medium truncate">{entry.name}</div>
+                        <div className="flex items-center justify-between mt-0.5">
+                          <span className="text-text-tertiary">
+                            {entry.type === 'build' ? 'Билд' : entry.type === 'inventory' ? 'Инвентарь' : 'Банк'}
+                          </span>
+                          <span className="text-text-muted">{entry.time}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </Card>
         </div>
@@ -158,15 +212,25 @@ export function RecommendationsPage() {
         <div className="lg:col-span-2">
           <Card variant="gw2">
             <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#f3c623]/40 to-transparent" />
-            <h2 className="text-lg font-semibold text-[#c9a84c] mb-3">Результат</h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold text-[#c9a84c]">Результат</h2>
+              {historyEntry && (
+                <button
+                  onClick={() => setViewingHistoryId(null)}
+                  className="text-xs text-text-tertiary hover:text-[#f3c623] transition-colors"
+                >
+                  К текущему
+                </button>
+              )}
+            </div>
 
-            {!result && !error && !isAnalyzing && (
+            {!displayResult && !currentError && !isAnalyzing && (
               <p className="text-text-secondary text-center py-8">
                 Выберите персонажа и начните анализ
               </p>
             )}
 
-            {isAnalyzing && (
+            {isAnalyzing && !historyEntry && (
               <div className="flex items-center justify-center py-12">
                 <div className="text-center">
                   <Spinner className="w-10 h-10 mx-auto mb-4" />
@@ -177,16 +241,22 @@ export function RecommendationsPage() {
               </div>
             )}
 
-            {error && !isAnalyzing && (
+            {currentError && !isAnalyzing && !viewingHistoryId && (
               <div className="text-red-400 text-sm">
-                {(error as any)?.response?.data?.detail || 'Ошибка анализа. Проверьте API ключ.'}
+                {(currentError as any)?.response?.data?.detail || 'Ошибка анализа. Проверьте API ключ.'}
               </div>
             )}
 
-            {result && !isAnalyzing && (
-              <div className="prose prose-invert max-w-none">
-                <div className="text-sm text-text-primary leading-relaxed whitespace-pre-wrap">
-                  {resultContent}
+            {displayResult && (
+              <div className="relative">
+                {historyEntry && (
+                  <div className="text-[10px] text-text-tertiary mb-2 flex items-center gap-2">
+                    <span className="bg-[#c9a84c]/10 text-[#c9a84c] px-1.5 py-0.5 rounded">История</span>
+                    <span>{displayChar} — {displayTab === 'build' ? 'Билд' : 'Инвентарь'}</span>
+                  </div>
+                )}
+                <div className="text-sm text-text-primary leading-relaxed">
+                  <SimpleMarkdown text={displayResult} />
                 </div>
               </div>
             )}

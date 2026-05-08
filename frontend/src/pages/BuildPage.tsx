@@ -296,6 +296,7 @@ export function BuildPage() {
           <AnalyzeButton
             label="AI Анализ билда"
             onAnalyze={(apiKey) => deepseekClient.analyzeBuild(name || '', apiKey).then(r => r.analysis)}
+            historyInfo={{ name: name || '', type: 'build' }}
           />
         </div>
       </div>

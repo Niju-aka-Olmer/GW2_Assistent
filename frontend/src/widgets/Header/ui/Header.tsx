@@ -6,6 +6,7 @@ import clsx from 'clsx';
 const navLinks = [
   { to: '/', label: 'Персонажи' },
   { to: '/recommendations', label: 'Рекомендации' },
+  { to: '/trading-post', label: 'Аукцион' },
 ];
 
 export function Header() {

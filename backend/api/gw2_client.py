@@ -1,7 +1,7 @@
 import httpx
 from typing import Any, Optional
 from utils.errors import GW2APIError
-from cache.memory_cache import character_cache, item_cache, price_cache, token_cache
+from cache.memory_cache import character_cache, item_cache, price_cache, token_cache, item_name_cache, item_id_list_cache
 
 GW2_API_BASE = "https://api.guildwars2.com/v2"
 BATCH_SIZE = 200
@@ -190,6 +190,92 @@ async def get_trait_details(trait_ids: list[int]) -> list[dict]:
 
 async def get_specialization_details(spec_ids: list[int]) -> list[dict]:
     return await _get_batch("specializations", spec_ids)
+
+
+async def get_commerce_prices(item_ids: list[int]) -> list[dict]:
+    missing_ids = []
+    prices_map = {}
+    for id_ in item_ids:
+        cached = price_cache.get(f"price:{id_}")
+        if cached is not None:
+            prices_map[id_] = cached
+        else:
+            missing_ids.append(id_)
+
+    if missing_ids:
+        fetched = await _get_batch("commerce/prices", missing_ids)
+        for price in fetched:
+            price_cache.set(f"price:{price['id']}", price)
+            prices_map[price["id"]] = price
+
+    return [prices_map[id_] for id_ in item_ids if id_ in prices_map]
+
+
+async def get_commerce_listings(item_ids: list[int]) -> list[dict]:
+    return await _get_batch("commerce/listings", item_ids)
+
+
+async def get_commerce_exchange(quantity: int, exchange_type: str = "coins") -> dict:
+    if exchange_type == "coins":
+        return await _get("commerce/exchange/coins", params={"quantity": quantity})
+    else:
+        return await _get("commerce/exchange/gems", params={"quantity": quantity})
+
+
+async def get_all_item_ids() -> list[int]:
+    cached = item_id_list_cache.get("all_ids")
+    if cached is not None:
+        return cached
+    ids = await _get("items")
+    if isinstance(ids, list):
+        item_id_list_cache.set("all_ids", ids)
+    return ids if isinstance(ids, list) else []
+
+
+async def search_items_by_name(query: str, page: int = 0, page_size: int = 24) -> dict:
+    all_ids = await get_all_item_ids()
+
+    cached_names = item_name_cache.get("names")
+    if cached_names is None:
+        cached_names = {}
+        batch_size = 200
+        for i in range(0, len(all_ids), batch_size):
+            batch = all_ids[i:i + batch_size]
+            items = await _get_batch("items", batch)
+            for item in items:
+                if isinstance(item, dict) and "id" in item and "name" in item:
+                    cached_names[item["id"]] = {
+                        "id": item["id"],
+                        "name": item["name"],
+                        "icon": item.get("icon", ""),
+                        "rarity": item.get("rarity", "Basic"),
+                        "level": item.get("level", 0),
+                        "type": item.get("type", ""),
+
+                    }
+            if i % 2000 == 0 and i > 0:
+                pass  # progress
+        item_name_cache.set("names", cached_names)
+
+    query_lower = query.lower().strip()
+    matches = []
+    for item_id, info in cached_names.items():
+        if query_lower in info["name"].lower():
+            matches.append(info)
+
+    matches.sort(key=lambda x: x["name"])
+    total = len(matches)
+    start = page * page_size
+    end = start + page_size
+    page_items = matches[start:end]
+
+    return {
+        "items": page_items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "has_more": end < total,
+    }
 
 
 async def get_character_render(api_key: str, name: str) -> bytes:

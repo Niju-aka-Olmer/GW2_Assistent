@@ -16,10 +16,15 @@ from api.gw2_client import (
     get_skill_details,
     get_trait_details,
     get_specialization_details,
+    get_commerce_prices,
+    get_commerce_listings,
+    get_commerce_exchange,
+    search_items_by_name,
 )
 from api.deepseek_client import analyze as deepseek_analyze
 from services.build_analyzer import analyze_build_text
 from services.inventory_analyzer import analyze_inventory_text, INVENTORY_INSTRUCTIONS
+from services.trading_post_analyzer import analyze_trading_post_prompt
 from cache.memory_cache import character_cache, item_cache, price_cache
 from models.character import CharacterSummary
 from utils.errors import AuthError
@@ -277,6 +282,55 @@ async def item_details(
     return {"items": [_sanitize_item(it) for it in items]}
 
 
+@router.get("/commerce/prices")
+async def commerce_prices(
+    item_ids: str,
+    authorization: Optional[str] = Header(None),
+):
+    _get_api_key(authorization)
+    ids = [int(x.strip()) for x in item_ids.split(",") if x.strip()]
+    if not ids:
+        return {"prices": []}
+    prices = await get_commerce_prices(ids)
+    return {"prices": prices}
+
+
+@router.get("/commerce/listings")
+async def commerce_listings(
+    item_ids: str,
+    authorization: Optional[str] = Header(None),
+):
+    _get_api_key(authorization)
+    ids = [int(x.strip()) for x in item_ids.split(",") if x.strip()]
+    if not ids:
+        return {"listings": []}
+    listings = await get_commerce_listings(ids)
+    return {"listings": listings}
+
+
+@router.get("/commerce/exchange")
+async def commerce_exchange(
+    quantity: int = Query(..., description="Quantity of coins or gems"),
+    type: str = Query("coins", description="'coins' or 'gems'"),
+    authorization: Optional[str] = Header(None),
+):
+    _get_api_key(authorization)
+    result = await get_commerce_exchange(quantity, type)
+    return result
+
+
+@router.get("/commerce/search")
+async def commerce_search(
+    q: str = Query(..., description="Search query"),
+    page: int = Query(0, ge=0),
+    page_size: int = Query(24, ge=1, le=100),
+    authorization: Optional[str] = Header(None),
+):
+    _get_api_key(authorization)
+    result = await search_items_by_name(q, page=page, page_size=page_size)
+    return result
+
+
 @router.post("/deepseek/analyze-build")
 async def deepseek_analyze_build(
     body: dict,
@@ -417,6 +471,46 @@ async def deepseek_analyze_inventory(
         "character": name,
         "target": target,
         "analysis": analysis,
+    }
+
+
+@router.post("/deepseek/analyze-trading-post")
+async def deepseek_analyze_trading_post(
+    body: dict,
+    authorization: Optional[str] = Header(None),
+):
+    api_key = _get_api_key(authorization)
+    item_ids = body.get("item_ids", [])
+    exchange_data = body.get("exchange_data")
+
+    if not item_ids:
+        raise HTTPException(status_code=400, detail="Field 'item_ids' is required")
+
+    items_data = []
+    prices_data = await get_commerce_prices(item_ids)
+    price_map = {p["id"]: p for p in prices_data}
+
+    item_details = await get_item_details(item_ids)
+    for item in item_details:
+        item_id = item["id"]
+        entry = _sanitize_item(item)
+        price_info = price_map.get(item_id, {})
+        buys = price_info.get("buys", {})
+        sells = price_info.get("sells", {})
+        entry["buy_price"] = buys.get("unit_price")
+        entry["sell_price"] = sells.get("unit_price")
+        entry["buy_quantity"] = buys.get("quantity", 0)
+        entry["sell_quantity"] = sells.get("quantity", 0)
+        items_data.append(entry)
+
+    prompt = analyze_trading_post_prompt(items_data, exchange_data)
+
+    deepseek_api_key = body.get("deepseek_api_key", "")
+    analysis = await deepseek_analyze(prompt, api_key=deepseek_api_key)
+
+    return {
+        "analysis": analysis,
+        "items_count": len(items_data),
     }
 
 

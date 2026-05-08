@@ -1,9 +1,11 @@
 import { useState, useCallback } from 'react';
 import { SimpleMarkdown } from '../../../shared/ui/SimpleMarkdown';
+import { useAnalysisHistory } from '../../../shared/hooks/useAnalysisHistory';
 
 interface AnalyzeButtonProps {
   label?: string;
   onAnalyze: (apiKey?: string) => Promise<string>;
+  historyInfo?: { name: string; type: 'build' | 'inventory' | 'bank' };
 }
 
 const DS_KEY_STORAGE = 'gw2_deepseek_api_key';
@@ -23,12 +25,13 @@ function storeKey(key: string) {
   } catch { }
 }
 
-export function AnalyzeButton({ label = 'Анализ', onAnalyze }: AnalyzeButtonProps) {
+export function AnalyzeButton({ label = 'Анализ', onAnalyze, historyInfo }: AnalyzeButtonProps) {
   const [result, setResult] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showKeyInput, setShowKeyInput] = useState(false);
   const [apiKey, setApiKey] = useState(getStoredKey());
+  const { saveAnalysis } = useAnalysisHistory();
 
   const handleAnalyze = useCallback(async (key?: string) => {
     setLoading(true);
@@ -37,6 +40,9 @@ export function AnalyzeButton({ label = 'Анализ', onAnalyze }: AnalyzeButt
     try {
       const analysis = await onAnalyze(key);
       setResult(analysis);
+      if (historyInfo) {
+        saveAnalysis({ name: historyInfo.name, type: historyInfo.type, analysis });
+      }
     } catch (err: any) {
       const msg = err?.response?.data?.detail || err?.message || String(err);
       if (msg.includes('not configured') || msg.includes('API key') || msg.includes('DeepSeek')) {
@@ -48,7 +54,7 @@ export function AnalyzeButton({ label = 'Анализ', onAnalyze }: AnalyzeButt
     } finally {
       setLoading(false);
     }
-  }, [onAnalyze]);
+  }, [onAnalyze, historyInfo, saveAnalysis]);
 
   const handleSubmitKey = () => {
     if (!apiKey.trim()) return;

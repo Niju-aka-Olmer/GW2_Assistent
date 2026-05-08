@@ -27,3 +27,5 @@ character_cache = MemoryCache(maxsize=128, ttl=600)
 item_cache = MemoryCache(maxsize=1024, ttl=3600)
 price_cache = MemoryCache(maxsize=512, ttl=300)
 token_cache = MemoryCache(maxsize=64, ttl=60)
+item_name_cache = MemoryCache(maxsize=1, ttl=3600)  # Stores the item ID->name mapping
+item_id_list_cache = MemoryCache(maxsize=1, ttl=3600)  # Stores all item IDs

@@ -257,6 +257,7 @@ export function InventoryPage() {
         <AnalyzeButton
           label="AI Анализ"
           onAnalyze={(apiKey) => deepseekClient.analyzeInventory(name || '', activeTab as 'inventory' | 'bank', apiKey).then(r => r.analysis)}
+          historyInfo={{ name: name || '', type: activeTab as 'inventory' | 'bank' }}
         />
       </div>
 
