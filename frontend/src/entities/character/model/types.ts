@@ -9,6 +9,15 @@ export interface CharacterSummary {
   coins: number;
 }
 
+export interface WalletCurrency {
+  id: number;
+  value: number;
+}
+
+export interface WalletResponse {
+  wallet: WalletCurrency[];
+}
+
 export interface CharacterListResponse {
   characters: CharacterSummary[];
 }

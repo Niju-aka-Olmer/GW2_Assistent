@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTheme } from '../../../app/providers/ThemeProvider';
 import { useAuth } from '../../../app/providers/AuthProvider';
 import clsx from 'clsx';
@@ -13,6 +13,12 @@ export function Header() {
   const { theme, toggle } = useTheme();
   const { apiKey, clearApiKey } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    clearApiKey();
+    navigate('/');
+  };
 
   return (
     <header className="relative bg-gradient-to-r from-[#0d0d14] via-[#15171f] to-[#0d0d14] border-b border-[#c9a84c]/20 shadow-lg shadow-black/30">
@@ -53,7 +59,7 @@ export function Header() {
         <div className="flex items-center gap-3">
           {apiKey && (
             <button
-              onClick={clearApiKey}
+              onClick={handleLogout}
               className="text-xs text-text-tertiary hover:text-[#e74c3c] transition-colors px-2 py-1 rounded border border-transparent hover:border-red-700/30"
             >
               Выйти

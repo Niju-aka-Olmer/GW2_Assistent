@@ -9,19 +9,30 @@ interface AnalyzeButtonProps {
 }
 
 const DS_KEY_STORAGE = 'gw2_deepseek_api_key';
+const DS_REMEMBER_FLAG = 'gw2_deepseek_remember';
 
 function getStoredKey(): string {
   try {
-    return sessionStorage.getItem(DS_KEY_STORAGE) || localStorage.getItem(DS_KEY_STORAGE) || '';
+    const remembered = localStorage.getItem(DS_REMEMBER_FLAG) === 'true';
+    if (remembered) {
+      return localStorage.getItem(DS_KEY_STORAGE) || '';
+    }
+    return sessionStorage.getItem(DS_KEY_STORAGE) || '';
   } catch {
     return '';
   }
 }
 
-function storeKey(key: string) {
+function storeKey(key: string, remember: boolean) {
   try {
     sessionStorage.setItem(DS_KEY_STORAGE, key);
-    localStorage.setItem(DS_KEY_STORAGE, key);
+    if (remember) {
+      localStorage.setItem(DS_KEY_STORAGE, key);
+      localStorage.setItem(DS_REMEMBER_FLAG, 'true');
+    } else {
+      localStorage.removeItem(DS_KEY_STORAGE);
+      localStorage.removeItem(DS_REMEMBER_FLAG);
+    }
   } catch { }
 }
 
@@ -31,6 +42,11 @@ export function AnalyzeButton({ label = 'Анализ', onAnalyze, historyInfo }
   const [error, setError] = useState<string | null>(null);
   const [showKeyInput, setShowKeyInput] = useState(false);
   const [apiKey, setApiKey] = useState(getStoredKey());
+  const [rememberKey, setRememberKey] = useState(() => {
+    try {
+      return localStorage.getItem(DS_REMEMBER_FLAG) === 'true';
+    } catch { return false; }
+  });
   const { saveAnalysis } = useAnalysisHistory();
 
   const handleAnalyze = useCallback(async (key?: string) => {
@@ -58,10 +74,16 @@ export function AnalyzeButton({ label = 'Анализ', onAnalyze, historyInfo }
 
   const handleSubmitKey = () => {
     if (!apiKey.trim()) return;
-    storeKey(apiKey.trim());
+    storeKey(apiKey.trim(), rememberKey);
     setShowKeyInput(false);
     setError(null);
     handleAnalyze(apiKey.trim());
+  };
+
+  const handleForgetKey = () => {
+    storeKey('', false);
+    setApiKey('');
+    setRememberKey(false);
   };
 
   return (
@@ -97,6 +119,18 @@ export function AnalyzeButton({ label = 'Анализ', onAnalyze, historyInfo }
       {error && !showKeyInput && (
         <div className="mt-3 p-3 bg-red-900/30 border border-red-700/50 rounded-lg">
           <p className="text-red-400 text-xs">{error}</p>
+        </div>
+      )}
+
+      {rememberKey && !showKeyInput && (
+        <div className="mt-2 flex items-center justify-between">
+          <span className="text-xs text-text-tertiary">DeepSeek ключ сохранён</span>
+          <button
+            onClick={handleForgetKey}
+            className="text-xs text-text-tertiary hover:text-red-400 transition-colors"
+          >
+            Забыть
+          </button>
         </div>
       )}
 
@@ -145,6 +179,15 @@ export function AnalyzeButton({ label = 'Анализ', onAnalyze, historyInfo }
               autoFocus
               onKeyDown={(e) => { if (e.key === 'Enter') handleSubmitKey(); }}
             />
+            <label className="flex items-center gap-2 cursor-pointer select-none mt-2">
+              <input
+                type="checkbox"
+                checked={rememberKey}
+                onChange={(e) => setRememberKey(e.target.checked)}
+                className="w-3.5 h-3.5 rounded border-border-primary bg-bg-secondary text-amber-500 focus:ring-amber-500"
+              />
+              <span className="text-xs text-text-secondary">Запомнить ключ</span>
+            </label>
             {error && (
               <p className="text-red-400 text-xs mb-2 mt-1">{error}</p>
             )}

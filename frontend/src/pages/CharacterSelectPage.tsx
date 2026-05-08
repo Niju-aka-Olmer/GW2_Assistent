@@ -1,15 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useCharacters } from '../entities/character/api/getCharacters';
+import { useAuth } from '../app/providers/AuthProvider';
+import { gw2Client } from '../shared/api/gw2Client';
 import { Layout } from '../shared/ui/Layout';
 import { Card } from '../shared/ui/Card';
 import { Button } from '../shared/ui/Button';
 import { Input } from '../shared/ui/Input';
 import { SkeletonGrid } from '../shared/ui/Skeleton';
 import { CoinBadge } from '../widgets/PriceBadge/ui/PriceBadge';
-import { useAuth } from '../app/providers/AuthProvider';
-import { gw2Client } from '../shared/api/gw2Client';
-import type { CharacterSummary } from '../entities/character/model/types';
+import type { CharacterSummary, WalletCurrency } from '../entities/character/model/types';
 
 const PROFESSION_ICONS: Record<string, string> = {
   Guardian: 'https://wiki.guildwars2.com/images/thumb/3/30/Guardian_icon_%28highres%29.png/480px-Guardian_icon_%28highres%29.png',
@@ -42,6 +43,24 @@ const PROFESSION_RU: Record<string, string> = {
   Necromancer: 'Некромант',
   Revenant: 'Ревенант',
 };
+
+const CURRENCY_INFO: Record<number, { name: string; icon: string; suffix?: string }> = {
+  1: { name: 'Монеты', icon: '🪙' },
+  2: { name: 'Карма', icon: '☯️' },
+  3: { name: 'Лавры', icon: '🏅' },
+  4: { name: 'Трансмутации', icon: '✨' },
+  5: { name: 'Осколки духа', icon: '💠' },
+  6: { name: 'Гемы', icon: '💎' },
+};
+
+const CURRENCY_ORDER = [1, 6, 2, 3, 5, 4];
+
+function formatWalletValue(currency: WalletCurrency): string {
+  if (currency.id === 1) {
+    return '';
+  }
+  return currency.value.toLocaleString('ru-RU');
+}
 
 function CharacterCard({ character }: { character: CharacterSummary }) {
   return (
@@ -80,11 +99,45 @@ function CharacterCard({ character }: { character: CharacterSummary }) {
   );
 }
 
+function WalletDisplay({ wallet }: { wallet: WalletCurrency[] }) {
+  const currencyMap = new Map(wallet.map(c => [c.id, c]));
+
+  return (
+    <Card className="mb-6">
+      <h2 className="text-sm font-semibold text-[#c9a84c] uppercase tracking-wider mb-3">Кошелёк</h2>
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+        {CURRENCY_ORDER.map(id => {
+          const info = CURRENCY_INFO[id];
+          if (!info) return null;
+          const entry = currencyMap.get(id);
+          if (!entry) return null;
+          if (id === 1) {
+            return (
+              <div key={id} className="flex items-center gap-1.5">
+                <span className="text-xs text-text-secondary">{info.name}:</span>
+                <CoinBadge value={entry.value} size={10} />
+              </div>
+            );
+          }
+          return (
+            <div key={id} className="flex items-center gap-1.5">
+              <span className="text-xs">{info.icon}</span>
+              <span className="text-xs text-text-secondary">{info.name}:</span>
+              <span className="text-xs text-text-primary font-medium">{formatWalletValue(entry)}</span>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
 function ApiKeyPage({ onKeySet }: { onKeySet: () => void }) {
   const [key, setKey] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { setApiKey, clearApiKey } = useAuth();
+  const [remember, setRemember] = useState(false);
+  const { setApiKey, clearApiKey, isRemembered } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,7 +151,7 @@ function ApiKeyPage({ onKeySet }: { onKeySet: () => void }) {
     setError('');
 
     try {
-      setApiKey(trimmed);
+      setApiKey(trimmed, remember);
 
       const result = await gw2Client.auth();
       if (result.status === 'ok') {
@@ -114,6 +167,12 @@ function ApiKeyPage({ onKeySet }: { onKeySet: () => void }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleForget = () => {
+    clearApiKey();
+    setKey('');
+    setRemember(false);
   };
 
   return (
@@ -161,6 +220,16 @@ function ApiKeyPage({ onKeySet }: { onKeySet: () => void }) {
             )}
           </div>
 
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(e) => setRemember(e.target.checked)}
+              className="w-4 h-4 rounded border-border-primary bg-bg-secondary text-[#c9a84c] focus:ring-[#c9a84c]"
+            />
+            <span className="text-sm text-text-secondary">Запомнить ключ</span>
+          </label>
+
           <Button
             type="submit"
             variant="gold"
@@ -170,6 +239,19 @@ function ApiKeyPage({ onKeySet }: { onKeySet: () => void }) {
             {loading ? 'Проверка...' : 'Подключиться'}
           </Button>
         </form>
+
+        {isRemembered && (
+          <div className="mt-4 pt-4 border-t border-border-primary">
+            <p className="text-xs text-text-secondary text-center mb-2">Ключ сохранён в памяти</p>
+            <Button
+              variant="gw2"
+              onClick={handleForget}
+              className="w-full text-xs"
+            >
+              Забыть ключ
+            </Button>
+          </div>
+        )}
 
         <p className="text-text-tertiary text-xs text-center mt-4">
           Ключ можно получить на{' '}
@@ -188,10 +270,27 @@ function ApiKeyPage({ onKeySet }: { onKeySet: () => void }) {
 }
 
 export function CharacterSelectPage() {
-  const { apiKey, clearApiKey } = useAuth();
+  const { apiKey, clearApiKey, isRemembered } = useAuth();
   const [showApiForm, setShowApiForm] = useState(!apiKey);
+
+  useEffect(() => {
+    if (!apiKey) {
+      setShowApiForm(true);
+    }
+  }, [apiKey]);
+
   const canLoad = !!apiKey && !showApiForm;
   const { data, isLoading, isError, error, refetch } = useCharacters(canLoad);
+
+  const walletQuery = useQuery({
+    queryKey: ['account-wallet'],
+    queryFn: async () => {
+      const result = await gw2Client.getWallet();
+      return result.wallet;
+    },
+    enabled: canLoad,
+    refetchInterval: 120000,
+  });
 
   const handleKeySet = () => {
     setShowApiForm(false);
@@ -212,13 +311,27 @@ export function CharacterSelectPage() {
           </h1>
           <p className="text-text-secondary text-sm mt-1">Ваши персонажи Guild Wars 2</p>
         </div>
-        <button
-          onClick={clearApiKey}
-          className="text-sm text-text-tertiary hover:text-[#e74c3c] transition-colors px-3 py-1 rounded border border-border-primary hover:border-red-700/30"
-        >
-          Выйти
-        </button>
+        <div className="flex items-center gap-2">
+          {isRemembered && (
+            <button
+              onClick={clearApiKey}
+              className="text-sm text-text-tertiary hover:text-[#e74c3c] transition-colors px-3 py-1 rounded border border-border-primary hover:border-red-700/30"
+            >
+              Забыть ключ
+            </button>
+          )}
+          <button
+            onClick={clearApiKey}
+            className="text-sm text-text-tertiary hover:text-[#e74c3c] transition-colors px-3 py-1 rounded border border-border-primary hover:border-red-700/30"
+          >
+            Выйти
+          </button>
+        </div>
       </div>
+
+      {walletQuery.data && (
+        <WalletDisplay wallet={walletQuery.data} />
+      )}
 
       {isLoading && <SkeletonGrid count={6} />}
 

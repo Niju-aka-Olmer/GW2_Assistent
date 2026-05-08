@@ -19,6 +19,7 @@ from api.gw2_client import (
     get_commerce_prices,
     get_commerce_listings,
     get_commerce_exchange,
+    get_account_wallet,
     search_items_by_name,
 )
 from api.deepseek_client import analyze as deepseek_analyze
@@ -71,6 +72,13 @@ def _get_api_key(authorization: Optional[str] = None) -> str:
     if scheme.lower() != "bearer" or not key:
         raise AuthError(detail="Invalid Authorization header. Use: Bearer <api_key>")
     return key
+
+
+@router.get("/account/wallet")
+async def account_wallet(authorization: Optional[str] = Header(None)):
+    api_key = _get_api_key(authorization)
+    wallet = await get_account_wallet(api_key)
+    return {"wallet": wallet}
 
 
 @router.post("/auth")
@@ -488,7 +496,10 @@ async def deepseek_analyze_trading_post(
     prices_data = await get_commerce_prices(item_ids)
     price_map = {p["id"]: p for p in prices_data}
 
-    item_details = await get_item_details(item_ids)
+    try:
+        item_details = await get_item_details(item_ids)
+    except Exception:
+        item_details = []
     for item in item_details:
         item_id = item["id"]
         entry = _sanitize_item(item)

@@ -61,12 +61,18 @@ async def _get_batch(
     results = []
     for i in range(0, len(ids), BATCH_SIZE):
         batch = ids[i : i + BATCH_SIZE]
-        batch_data = await _get(
-            path,
-            api_key=api_key,
-            params={"ids": ",".join(str(id_) for id_ in batch)},
-        )
-        results.extend(batch_data if isinstance(batch_data, list) else [batch_data])
+        try:
+            batch_data = await _get(
+                path,
+                api_key=api_key,
+                params={"ids": ",".join(str(id_) for id_ in batch)},
+            )
+            results.extend(batch_data if isinstance(batch_data, list) else [batch_data])
+        except GW2APIError as e:
+            if e.status_code == 404:
+                logger.warning(f"Batch 404 for {path} ids={batch}: {e.detail}")
+                continue
+            raise
     return results
 
 
@@ -199,6 +205,10 @@ async def get_trait_details(trait_ids: list[int]) -> list[dict]:
 
 async def get_specialization_details(spec_ids: list[int]) -> list[dict]:
     return await _get_batch("specializations", spec_ids)
+
+
+async def get_account_wallet(api_key: str) -> list[dict]:
+    return await _get("account/wallet", api_key=api_key)
 
 
 async def get_commerce_prices(item_ids: list[int]) -> list[dict]:

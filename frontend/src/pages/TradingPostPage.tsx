@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Layout } from '../shared/ui/Layout';
 import { Card } from '../shared/ui/Card';
@@ -78,6 +78,20 @@ export function TradingPostPage() {
   const [watchedItems, setWatchedItems] = useState<WatchedItem[]>([]);
   const [deepseekKey, setDeepseekKey] = useState('');
   const [showKeyInput, setShowKeyInput] = useState(false);
+  const [rememberDsKey, setRememberDsKey] = useState(false);
+  const DS_STORAGE_KEY = 'gw2_deepseek_api_key';
+  const DS_REMEMBER_FLAG = 'gw2_deepseek_remember';
+
+  useEffect(() => {
+    const remembered = localStorage.getItem(DS_REMEMBER_FLAG) === 'true';
+    if (remembered) {
+      const saved = localStorage.getItem(DS_STORAGE_KEY);
+      if (saved) {
+        setDeepseekKey(saved);
+        setRememberDsKey(true);
+      }
+    }
+  }, []);
 
   const { saveAnalysis } = useAnalysisHistory();
 
@@ -137,7 +151,12 @@ export function TradingPostPage() {
         coins_per_gem: exchangeQuery.data.coins_per_gem,
         gold_for_100gems: exchangeQuery.data.quantity,
       } : undefined;
-      return deepseekClient.analyzeTradingPost(ids, deepseekKey.trim() || undefined, exchangeData);
+      const key = deepseekKey.trim() || undefined;
+      if (key && rememberDsKey) {
+        localStorage.setItem(DS_STORAGE_KEY, key);
+        localStorage.setItem(DS_REMEMBER_FLAG, 'true');
+      }
+      return deepseekClient.analyzeTradingPost(ids, key, exchangeData);
     },
     onSuccess: (data) => {
       saveAnalysis({ name: 'Аукцион', type: 'build', analysis: data.analysis });
@@ -452,13 +471,30 @@ export function TradingPostPage() {
                 {showKeyInput ? 'Скрыть' : 'Указать свой'} DeepSeek API ключ
               </button>
               {showKeyInput && (
-                <input
-                  type="password"
-                  className="w-full bg-bg-secondary border border-border-primary rounded-lg px-3 py-2 text-text-primary text-sm focus:outline-none focus:border-[#c9a84c]"
-                  placeholder="DeepSeek API Key (опционально)"
-                  value={deepseekKey}
-                  onChange={e => setDeepseekKey(e.target.value)}
-                />
+                <div className="space-y-2">
+                  <input
+                    type="password"
+                    className="w-full bg-bg-secondary border border-border-primary rounded-lg px-3 py-2 text-text-primary text-sm focus:outline-none focus:border-[#c9a84c]"
+                    placeholder="DeepSeek API Key (опционально)"
+                    value={deepseekKey}
+                    onChange={e => setDeepseekKey(e.target.value)}
+                  />
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={rememberDsKey}
+                      onChange={(e) => {
+                        setRememberDsKey(e.target.checked);
+                        if (!e.target.checked) {
+                          localStorage.removeItem(DS_STORAGE_KEY);
+                          localStorage.removeItem(DS_REMEMBER_FLAG);
+                        }
+                      }}
+                      className="w-3.5 h-3.5 rounded border-border-primary bg-bg-secondary text-[#c9a84c] focus:ring-[#c9a84c]"
+                    />
+                    <span className="text-xs text-text-secondary">Запомнить ключ</span>
+                  </label>
+                </div>
               )}
 
               <Button

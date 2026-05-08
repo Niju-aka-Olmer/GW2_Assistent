@@ -1,5 +1,6 @@
 import { apiClient } from './apiClient';
 import type { CharacterListResponse } from '../../entities/character/model/types';
+import type { WalletResponse } from '../../entities/character/model/types';
 import type { ItemDetailsListResponse } from '../../entities/item/model/types';
 import type { PriceResponse } from '../../entities/price/model/types';
 
@@ -105,6 +106,11 @@ export const gw2Client = {
 
   clearCache: async () => {
     const { data } = await apiClient.post<CacheClearResponse>('/cache/clear');
+    return data;
+  },
+
+  getWallet: async () => {
+    const { data } = await apiClient.get<WalletResponse>('/account/wallet');
     return data;
   },
 };
