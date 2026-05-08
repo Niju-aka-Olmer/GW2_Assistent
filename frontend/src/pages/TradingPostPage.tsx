@@ -239,10 +239,11 @@ export function TradingPostPage() {
                         <div className="w-8 h-8 rounded bg-bg-tertiary flex-shrink-0 overflow-hidden">
                           {item.icon && (
                             <img
-                              src={`https://render.guildwars2.com/file/${item.icon.split('/').pop()}`}
+                              src={item.icon}
                               alt=""
                               className="w-full h-full object-contain"
                               loading="lazy"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                             />
                           )}
                         </div>
@@ -336,9 +337,10 @@ export function TradingPostPage() {
                               <div className="w-7 h-7 rounded bg-bg-tertiary flex-shrink-0 overflow-hidden">
                                 {item.icon && (
                                   <img
-                                    src={`https://render.guildwars2.com/file/${item.icon.split('/').pop()}`}
+                                    src={item.icon}
                                     alt=""
                                     className="w-full h-full object-contain"
+                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                                   />
                                 )}
                               </div>

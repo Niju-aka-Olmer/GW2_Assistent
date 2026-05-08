@@ -232,45 +232,65 @@ async def get_all_item_ids() -> list[int]:
     return ids if isinstance(ids, list) else []
 
 
+# Search result cache (in-memory, short TTL)
+_item_search_cache = MemoryCache(maxsize=64, ttl=120)
+
+
 async def search_items_by_name(query: str, page: int = 0, page_size: int = 24) -> dict:
-    all_ids = await get_all_item_ids()
+    query = query.strip()
+    if not query or len(query) < 1:
+        return {"items": [], "total": 0, "page": page, "page_size": page_size, "has_more": False}
 
-    cached_names = item_name_cache.get("names")
-    if cached_names is None:
-        cached_names = {}
-        batch_size = 200
-        for i in range(0, len(all_ids), batch_size):
-            batch = all_ids[i:i + batch_size]
-            items = await _get_batch("items", batch)
-            for item in items:
-                if isinstance(item, dict) and "id" in item and "name" in item:
-                    cached_names[item["id"]] = {
-                        "id": item["id"],
-                        "name": item["name"],
-                        "icon": item.get("icon", ""),
-                        "rarity": item.get("rarity", "Basic"),
-                        "level": item.get("level", 0),
-                        "type": item.get("type", ""),
+    cache_key = f"search:{query.lower()}"
+    cached_ids = _item_search_cache.get(cache_key)
+    if cached_ids is not None:
+        item_ids = cached_ids
+    else:
+        try:
+            result = await _get("search", params={"text": query, "lang": "ru"})
+            if isinstance(result, dict):
+                item_ids = result.get("items", [])
+            elif isinstance(result, list):
+                item_ids = result
+            else:
+                item_ids = []
+            item_ids = list(dict.fromkeys(item_ids))
+            _item_search_cache.set(cache_key, item_ids)
+        except Exception:
+            return {"items": [], "total": 0, "page": page, "page_size": page_size, "has_more": False}
 
-                    }
-            if i % 2000 == 0 and i > 0:
-                pass  # progress
-        item_name_cache.set("names", cached_names)
+    if not item_ids:
+        return {"items": [], "total": 0, "page": page, "page_size": page_size, "has_more": False}
 
-    query_lower = query.lower().strip()
-    matches = []
-    for item_id, info in cached_names.items():
-        if query_lower in info["name"].lower():
-            matches.append(info)
+    search_limit = 500
+    if len(item_ids) > search_limit:
+        item_ids = item_ids[:search_limit]
 
-    matches.sort(key=lambda x: x["name"])
-    total = len(matches)
+    try:
+        items = await get_item_details(item_ids)
+    except Exception:
+        items = []
+
+    formatted = []
+    for item in items:
+        if not isinstance(item, dict) or "id" not in item:
+            continue
+        formatted.append({
+            "id": item["id"],
+            "name": item.get("name", ""),
+            "icon": item.get("icon", ""),
+            "rarity": item.get("rarity", "Basic"),
+            "level": item.get("level", 0),
+            "type": item.get("type", ""),
+        })
+
+    formatted.sort(key=lambda x: x["name"])
+    total = len(formatted)
     start = page * page_size
     end = start + page_size
-    page_items = matches[start:end]
 
     return {
-        "items": page_items,
+        "items": formatted[start:end],
         "total": total,
         "page": page,
         "page_size": page_size,
