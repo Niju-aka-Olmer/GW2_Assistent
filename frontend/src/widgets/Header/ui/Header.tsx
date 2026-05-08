@@ -7,6 +7,7 @@ const navLinks = [
   { to: '/', label: 'Персонажи' },
   { to: '/recommendations', label: 'Рекомендации' },
   { to: '/trading-post', label: 'Аукцион' },
+  { to: '/reference', label: 'Справочник' },
 ];
 
 export function Header() {

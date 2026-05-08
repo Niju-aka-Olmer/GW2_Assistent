@@ -22,6 +22,32 @@ from api.gw2_client import (
     get_account_wallet,
     get_currencies,
     search_items_by_name,
+    get_account,
+    get_achievement_groups,
+    get_achievement_categories,
+    get_achievements,
+    get_daily_achievements,
+    get_account_achievements,
+    get_raids,
+    get_account_raids,
+    get_masteries,
+    get_account_masteries,
+    get_account_mastery_points,
+    get_account_dyes,
+    get_account_skins,
+    get_account_minis,
+    get_account_finishers,
+    get_account_gliders,
+    get_account_mailcarriers,
+    get_skin_details,
+    get_mini_details,
+    get_color_details,
+    get_finisher_details,
+    get_glider_details,
+    get_mailcarrier_details,
+    get_professions,
+    get_profession_details,
+    get_recipe_details,
 )
 from api.deepseek_client import analyze as deepseek_analyze
 from services.build_analyzer import analyze_build_text, fetch_metabattle_build, get_metabattle_build_name
@@ -806,6 +832,205 @@ async def clear_cache(authorization: Optional[str] = Header(None)):
     item_cache.clear()
     price_cache.clear()
     return {"status": "ok", "message": "Cache cleared"}
+
+
+# ============================================================
+# NEW: Account & Achievements & Raids & Masteries & Collections
+# ============================================================
+
+
+@router.get("/account/info")
+async def account_info(authorization: Optional[str] = Header(None)):
+    api_key = _get_api_key(authorization)
+    data = await get_account(api_key)
+    return {
+        "name": data.get("name", ""),
+        "world": data.get("world", 0),
+        "created": data.get("created", ""),
+        "guilds": data.get("guilds", []),
+        "access": data.get("access", []),
+        "commander": data.get("commander", False),
+        "fractal_level": data.get("fractal_level", 0),
+        "daily_ap": data.get("daily_achievement_points", 0),
+        "monthly_ap": data.get("monthly_achievement_points", 0),
+        "wvw_rank": data.get("wvw_rank", 0),
+        "build_storage_slots": data.get("build_storage_slots", 0),
+        "age": data.get("age", 0),
+    }
+
+
+@router.get("/achievements/groups")
+async def achievements_groups():
+    groups = await get_achievement_groups()
+    return {"groups": groups}
+
+
+@router.get("/achievements/categories")
+async def achievements_categories():
+    categories = await get_achievement_categories()
+    return {"categories": categories}
+
+
+@router.get("/achievements")
+async def achievements_list(
+    ids: str = Query(""),
+):
+    if not ids:
+        return {"achievements": []}
+    id_list = [int(x.strip()) for x in ids.split(",") if x.strip()]
+    achievements = await get_achievements(id_list)
+    return {"achievements": achievements}
+
+
+@router.get("/achievements/daily")
+async def achievements_daily():
+    daily = await get_daily_achievements()
+    return daily
+
+
+@router.get("/account/achievements")
+async def account_achievements(authorization: Optional[str] = Header(None)):
+    api_key = _get_api_key(authorization)
+    data = await get_account_achievements(api_key)
+    return {"achievements": data}
+
+
+@router.get("/raids")
+async def raids_list():
+    raids = await get_raids()
+    return {"raids": raids}
+
+
+@router.get("/account/raids")
+async def account_raids(authorization: Optional[str] = Header(None)):
+    api_key = _get_api_key(authorization)
+    data = await get_account_raids(api_key)
+    return {"raids": data}
+
+
+@router.get("/masteries")
+async def masteries_list():
+    masteries = await get_masteries()
+    return {"masteries": masteries}
+
+
+@router.get("/account/masteries")
+async def account_masteries(authorization: Optional[str] = Header(None)):
+    api_key = _get_api_key(authorization)
+    data = await get_account_masteries(api_key)
+    return {"masteries": data}
+
+
+@router.get("/account/mastery-points")
+async def account_mastery_points(authorization: Optional[str] = Header(None)):
+    api_key = _get_api_key(authorization)
+    data = await get_account_mastery_points(api_key)
+    return data
+
+
+@router.get("/account/collections")
+async def account_collections(authorization: Optional[str] = Header(None)):
+    api_key = _get_api_key(authorization)
+    dye_ids, skin_ids, mini_ids = await asyncio.gather(
+        get_account_dyes(api_key),
+        get_account_skins(api_key),
+        get_account_minis(api_key),
+    )
+    # Fetch finishers, gliders, mailcarriers
+    finishers_raw, glider_ids, mailcarrier_ids = await asyncio.gather(
+        get_account_finishers(api_key),
+        get_account_gliders(api_key),
+        get_account_mailcarriers(api_key),
+    )
+
+    # Fetch details in batch
+    skin_details_map = {}
+    mini_details_map = {}
+    finisher_details_map = {}
+    glider_details_map = {}
+    mailcarrier_details_map = {}
+
+    if skin_ids:
+        skins = await get_skin_details(skin_ids)
+        for s in skins:
+            skin_details_map[s["id"]] = {"name": s.get("name", ""), "icon": s.get("icon", ""), "rarity": s.get("rarity", ""), "type": s.get("type", "")}
+    if mini_ids:
+        minis = await get_mini_details(mini_ids)
+        for m in minis:
+            mini_details_map[m["id"]] = {"name": m.get("name", ""), "icon": m.get("icon", "")}
+    if finishers_raw:
+        fin_ids = [f.get("id") for f in finishers_raw if f.get("id")]
+        if fin_ids:
+            finishers = await get_finisher_details(fin_ids)
+            for f in finishers:
+                finisher_details_map[f["id"]] = {"name": f.get("name", ""), "icon": f.get("icon", "")}
+    if glider_ids:
+        gliders = await get_glider_details(glider_ids)
+        for g in gliders:
+            glider_details_map[g["id"]] = {"name": g.get("name", ""), "icon": g.get("icon", "")}
+    if mailcarrier_ids:
+        carriers = await get_mailcarrier_details(mailcarrier_ids)
+        for c in carriers:
+            mailcarrier_details_map[c["id"]] = {"name": c.get("name", ""), "icon": c.get("icon", "")}
+
+    return {
+        "dye_count": len(dye_ids),
+        "skins": [{"id": sid, **skin_details_map.get(sid, {"name": f"Skin {sid}", "icon": ""})} for sid in skin_ids[:500]],
+        "minis": [{"id": mid, **mini_details_map.get(mid, {"name": f"Mini {mid}", "icon": ""})} for mid in mini_ids[:500]],
+        "finishers": [{"id": f.get("id"), **finisher_details_map.get(f.get("id"), {"name": f.get("name", f"Finisher {f.get('id')}"), "icon": ""})} for f in finishers_raw[:200]],
+        "gliders": [{"id": gid, **glider_details_map.get(gid, {"name": f"Glider {gid}", "icon": ""})} for gid in glider_ids[:200]],
+        "mailcarriers": [{"id": cid, **mailcarrier_details_map.get(cid, {"name": f"Mail Carrier {cid}", "icon": ""})} for cid in mailcarrier_ids[:200]],
+    }
+
+
+@router.get("/professions")
+async def professions_list():
+    professions = await get_professions()
+    return {"professions": professions}
+
+
+@router.get("/professions/details")
+async def professions_details(
+    ids: str = Query(""),
+):
+    if not ids:
+        return {"professions": []}
+    id_list = [x.strip() for x in ids.split(",") if x.strip()]
+    data = await get_profession_details(id_list)
+    return {"professions": data}
+
+
+@router.get("/skins")
+async def skins_list(
+    ids: str = Query(""),
+):
+    if not ids:
+        return {"skins": []}
+    id_list = [int(x.strip()) for x in ids.split(",") if x.strip()]
+    skins = await get_skin_details(id_list)
+    return {"skins": skins}
+
+
+@router.get("/minis")
+async def minis_list(
+    ids: str = Query(""),
+):
+    if not ids:
+        return {"minis": []}
+    id_list = [int(x.strip()) for x in ids.split(",") if x.strip()]
+    minis = await get_mini_details(id_list)
+    return {"minis": minis}
+
+
+@router.get("/recipes")
+async def recipes_list(
+    ids: str = Query(""),
+):
+    if not ids:
+        return {"recipes": []}
+    id_list = [int(x.strip()) for x in ids.split(",") if x.strip()]
+    recipes = await get_recipe_details(id_list)
+    return {"recipes": recipes}
 
 
 @router.get("/characters/{name}/render")

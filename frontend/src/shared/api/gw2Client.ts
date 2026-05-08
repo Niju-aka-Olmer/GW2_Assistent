@@ -123,4 +123,92 @@ export const gw2Client = {
     const { data } = await apiClient.get<WalletResponse>('/account/wallet');
     return data;
   },
+
+  getAccountInfo: async () => {
+    const { data } = await apiClient.get('/account/info');
+    return data;
+  },
+
+  getAchievementGroups: async () => {
+    const { data } = await apiClient.get('/achievements/groups');
+    return data;
+  },
+
+  getAchievementCategories: async () => {
+    const { data } = await apiClient.get('/achievements/categories');
+    return data;
+  },
+
+  getDailyAchievements: async () => {
+    const { data } = await apiClient.get('/achievements/daily');
+    return data;
+  },
+
+  getAchievements: async (ids: number[]) => {
+    const { data } = await apiClient.get('/achievements', {
+      params: { ids: ids.join(',') },
+    });
+    return data;
+  },
+
+  getAccountAchievements: async () => {
+    const { data } = await apiClient.get('/account/achievements');
+    return data;
+  },
+
+  getRaids: async () => {
+    const { data } = await apiClient.get('/raids');
+    return data;
+  },
+
+  getAccountRaids: async () => {
+    const { data } = await apiClient.get('/account/raids');
+    return data;
+  },
+
+  getMasteries: async () => {
+    const { data } = await apiClient.get('/masteries');
+    return data;
+  },
+
+  getAccountMasteries: async () => {
+    const { data } = await apiClient.get('/account/masteries');
+    return data;
+  },
+
+  getAccountMasteryPoints: async () => {
+    const { data } = await apiClient.get('/account/mastery-points');
+    return data;
+  },
+
+  getAccountCollections: async () => {
+    const { data } = await apiClient.get('/account/collections');
+    return data;
+  },
+
+  getProfessions: async () => {
+    const { data } = await apiClient.get('/professions');
+    return data;
+  },
+
+  getProfessionDetails: async (ids: string[]) => {
+    const { data } = await apiClient.get('/professions/details', {
+      params: { ids: ids.join(',') },
+    });
+    return data;
+  },
+
+  getRecipes: async (ids: number[]) => {
+    const { data } = await apiClient.get('/recipes', {
+      params: { ids: ids.join(',') },
+    });
+    return data;
+  },
+
+  searchItems: async (query: string) => {
+    const { data } = await apiClient.get('/commerce/search', {
+      params: { q: query, page: 0, page_size: 50 },
+    });
+    return data;
+  },
 };

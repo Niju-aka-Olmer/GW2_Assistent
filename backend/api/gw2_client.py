@@ -53,6 +53,116 @@ async def _get(
             raise GW2APIError(detail=str(e))
 
 
+async def get_account(api_key: str) -> dict:
+    cache_key = f"account:{api_key}"
+    cached = character_cache.get(cache_key)
+    if cached:
+        return cached
+    data = await _get("account", api_key=api_key)
+    character_cache.set(cache_key, data)
+    return data
+
+
+async def get_achievement_groups() -> list[dict]:
+    return await _get("achievements/groups", params={"lang": "ru"})
+
+
+async def get_achievement_categories() -> list[dict]:
+    return await _get("achievements/categories", params={"lang": "ru"})
+
+
+async def get_achievements(ids: list[int]) -> list[dict]:
+    return await _get_batch("achievements", ids)
+
+
+async def get_daily_achievements() -> dict:
+    return await _get("achievements/daily", params={"lang": "ru"})
+
+
+async def get_account_achievements(api_key: str) -> list[dict]:
+    return await _get("account/achievements", api_key=api_key)
+
+
+async def get_raids() -> list[str]:
+    return await _get("raids")
+
+
+async def get_account_raids(api_key: str) -> list[dict]:
+    return await _get("account/raids", api_key=api_key)
+
+
+async def get_masteries() -> list[dict]:
+    return await _get("masteries", params={"lang": "ru"})
+
+
+async def get_account_masteries(api_key: str) -> list[dict]:
+    return await _get("account/masteries", api_key=api_key)
+
+
+async def get_account_mastery_points(api_key: str) -> dict:
+    return await _get("account/mastery/points", api_key=api_key)
+
+
+async def get_account_dyes(api_key: str) -> list[int]:
+    return await _get("account/dyes", api_key=api_key)
+
+
+async def get_account_skins(api_key: str) -> list[int]:
+    return await _get("account/skins", api_key=api_key)
+
+
+async def get_account_minis(api_key: str) -> list[int]:
+    return await _get("account/minis", api_key=api_key)
+
+
+async def get_account_finishers(api_key: str) -> list[dict]:
+    return await _get("account/finishers", api_key=api_key)
+
+
+async def get_account_gliders(api_key: str) -> list[int]:
+    return await _get("account/gliders", api_key=api_key)
+
+
+async def get_account_mailcarriers(api_key: str) -> list[int]:
+    return await _get("account/mailcarriers", api_key=api_key)
+
+
+async def get_skin_details(skin_ids: list[int]) -> list[dict]:
+    return await _get_batch("skins", skin_ids)
+
+
+async def get_mini_details(mini_ids: list[int]) -> list[dict]:
+    return await _get_batch("minis", mini_ids)
+
+
+async def get_color_details(color_ids: list[int]) -> list[dict]:
+    return await _get_batch("colors", color_ids)
+
+
+async def get_finisher_details(finisher_ids: list[int]) -> list[dict]:
+    return await _get_batch("finishers", finisher_ids)
+
+
+async def get_glider_details(glider_ids: list[int]) -> list[dict]:
+    return await _get_batch("gliders", glider_ids)
+
+
+async def get_mailcarrier_details(mailcarrier_ids: list[int]) -> list[dict]:
+    return await _get_batch("mailcarriers", mailcarrier_ids)
+
+
+async def get_professions() -> list[dict]:
+    return await _get("professions", params={"lang": "ru"})
+
+
+async def get_profession_details(profession_ids: list[str]) -> list[dict]:
+    return await _get_batch("professions", profession_ids)
+
+
+async def get_recipe_details(recipe_ids: list[int]) -> list[dict]:
+    return await _get_batch("recipes", recipe_ids)
+
+
 async def _get_batch(
     path: str,
     ids: list[int],
