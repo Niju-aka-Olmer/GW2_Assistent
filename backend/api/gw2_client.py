@@ -6,6 +6,7 @@ from cache.memory_cache import MemoryCache, character_cache, item_cache, price_c
 GW2_API_BASE = "https://api.guildwars2.com/v2"
 BATCH_SIZE = 200
 REQUEST_TIMEOUT = 15.0
+MAX_CONCURRENT_BATCHES = 15  # Concurrent request limit for building name cache
 
 
 async def _get(
@@ -222,6 +223,127 @@ async def get_commerce_exchange(quantity: int, exchange_type: str = "coins") -> 
         return await _get("commerce/exchange/gems", params={"quantity": quantity})
 
 
+import asyncio
+import json
+import os
+
+ITEM_NAMES_CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "cache")
+ITEM_NAMES_CACHE_FILE = os.path.join(ITEM_NAMES_CACHE_DIR, "item_names.json")
+_item_name_cache_data: dict[str, dict] | None = None  # In-memory cache (process-level)
+
+
+def _get_name_cache_path() -> str:
+    os.makedirs(ITEM_NAMES_CACHE_DIR, exist_ok=True)
+    return ITEM_NAMES_CACHE_FILE
+
+
+def _load_name_cache_from_disk() -> dict[str, dict] | None:
+    path = _get_name_cache_path()
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return None
+    return None
+
+
+def _save_name_cache_to_disk(data: dict[str, dict]) -> None:
+    path = _get_name_cache_path()
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False)
+    except Exception:
+        pass
+
+
+async def _build_name_cache() -> dict[str, dict]:
+    """Build the item name cache concurrently and save to disk."""
+    all_ids = await get_all_item_ids()
+
+    cached = _load_name_cache_from_disk()
+    if cached is not None and len(cached) > 10000:
+        return cached
+
+    sem = asyncio.Semaphore(MAX_CONCURRENT_BATCHES)
+
+    async def fetch_batch(batch_ids: list[int]) -> dict[str, dict]:
+        async with sem:
+            try:
+                items = await _get_batch("items", batch_ids)
+                result = {}
+                for item in items:
+                    if isinstance(item, dict) and "id" in item:
+                        sid = str(item["id"])
+                        result[sid] = {
+                            "id": item["id"],
+                            "name": item.get("name", ""),
+                            "icon": item.get("icon", ""),
+                            "rarity": item.get("rarity", "Basic"),
+                            "level": item.get("level", 0),
+                            "type": item.get("type", ""),
+                        }
+                return result
+            except Exception:
+                return {}
+
+    batches = [all_ids[i:i + BATCH_SIZE] for i in range(0, len(all_ids), BATCH_SIZE)]
+    all_results = await asyncio.gather(*[fetch_batch(b) for b in batches])
+
+    merged: dict[str, dict] = {}
+    for r in all_results:
+        merged.update(r)
+
+    _save_name_cache_to_disk(merged)
+    return merged
+
+
+_name_cache_lock = asyncio.Lock()
+_name_cache_building = False
+
+
+async def search_items_by_name(query: str, page: int = 0, page_size: int = 24) -> dict:
+    global _item_name_cache_data, _name_cache_building
+
+    query = query.strip()
+    if not query or len(query) < 2:
+        return {"items": [], "total": 0, "page": page, "page_size": page_size, "has_more": False}
+
+    if _item_name_cache_data is None:
+        _item_name_cache_data = _load_name_cache_from_disk()
+
+    if _item_name_cache_data is None or len(_item_name_cache_data) < 10000:
+        async with _name_cache_lock:
+            if not _name_cache_building:
+                _name_cache_building = True
+                try:
+                    _item_name_cache_data = await _build_name_cache()
+                finally:
+                    _name_cache_building = False
+
+        if _item_name_cache_data is None or len(_item_name_cache_data) < 10000:
+            return {"items": [], "total": 0, "page": page, "page_size": page_size, "has_more": False}
+
+    query_lower = query.lower().strip()
+    matches = []
+    for sid, info in _item_name_cache_data.items():
+        if query_lower in info["name"].lower():
+            matches.append(info)
+
+    matches.sort(key=lambda x: x["name"])
+    total = len(matches)
+    start = page * page_size
+    end = start + page_size
+
+    return {
+        "items": matches[start:end],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "has_more": end < total,
+    }
+
+
 async def get_all_item_ids() -> list[int]:
     cached = item_id_list_cache.get("all_ids")
     if cached is not None:
@@ -230,72 +352,6 @@ async def get_all_item_ids() -> list[int]:
     if isinstance(ids, list):
         item_id_list_cache.set("all_ids", ids)
     return ids if isinstance(ids, list) else []
-
-
-# Search result cache (in-memory, short TTL)
-_item_search_cache = MemoryCache(maxsize=64, ttl=120)
-
-
-async def search_items_by_name(query: str, page: int = 0, page_size: int = 24) -> dict:
-    query = query.strip()
-    if not query or len(query) < 1:
-        return {"items": [], "total": 0, "page": page, "page_size": page_size, "has_more": False}
-
-    cache_key = f"search:{query.lower()}"
-    cached_ids = _item_search_cache.get(cache_key)
-    if cached_ids is not None:
-        item_ids = cached_ids
-    else:
-        try:
-            result = await _get("search", params={"text": query, "lang": "ru"})
-            if isinstance(result, dict):
-                item_ids = result.get("items", [])
-            elif isinstance(result, list):
-                item_ids = result
-            else:
-                item_ids = []
-            item_ids = list(dict.fromkeys(item_ids))
-            _item_search_cache.set(cache_key, item_ids)
-        except Exception:
-            return {"items": [], "total": 0, "page": page, "page_size": page_size, "has_more": False}
-
-    if not item_ids:
-        return {"items": [], "total": 0, "page": page, "page_size": page_size, "has_more": False}
-
-    search_limit = 500
-    if len(item_ids) > search_limit:
-        item_ids = item_ids[:search_limit]
-
-    try:
-        items = await get_item_details(item_ids)
-    except Exception:
-        items = []
-
-    formatted = []
-    for item in items:
-        if not isinstance(item, dict) or "id" not in item:
-            continue
-        formatted.append({
-            "id": item["id"],
-            "name": item.get("name", ""),
-            "icon": item.get("icon", ""),
-            "rarity": item.get("rarity", "Basic"),
-            "level": item.get("level", 0),
-            "type": item.get("type", ""),
-        })
-
-    formatted.sort(key=lambda x: x["name"])
-    total = len(formatted)
-    start = page * page_size
-    end = start + page_size
-
-    return {
-        "items": formatted[start:end],
-        "total": total,
-        "page": page,
-        "page_size": page_size,
-        "has_more": end < total,
-    }
 
 
 async def get_character_render(api_key: str, name: str) -> bytes:
