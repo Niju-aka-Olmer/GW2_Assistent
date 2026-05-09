@@ -152,7 +152,7 @@ function ItemsTab({
     staleTime: 60 * 1000,
   });
 
-  const itemIds = searchResults?.map((i: any) => i.id) || [];
+  const itemIds = (searchResults?.items || []).map((i: any) => i.id);
   const { data: details } = useQuery({
     queryKey: ['reference-item-details', itemIds],
     queryFn: () => gw2Client.getItemDetails(itemIds),
@@ -162,7 +162,7 @@ function ItemsTab({
 
   const detailsMap = new Map((details || []).map((d: any) => [d.id, d]));
 
-  let filtered = (searchResults || []).slice(0, 100);
+  let filtered = (searchResults?.items || []).slice(0, 100);
   if (category) {
     const catInfo = ITEM_CATEGORIES[category];
     filtered = filtered.filter((item: any) => {
@@ -297,7 +297,7 @@ function RecipesTab({
     staleTime: 60 * 1000,
   });
 
-  const itemIds = searchResults?.map((i: any) => i.id) || [];
+  const itemIds = (searchResults?.items || []).map((i: any) => i.id);
   const { data: recipes } = useQuery({
     queryKey: ['reference-recipes-details', itemIds],
     queryFn: () => gw2Client.getRecipes(itemIds),
@@ -313,7 +313,7 @@ function RecipesTab({
   });
 
   const detailsMap = new Map((details || []).map((d: any) => [d.id, d]));
-  const recipeList = recipes?.recipes || [];
+  const recipeList = recipes || [];
 
   let filteredRecipes = recipeList;
   if (discipline) {

@@ -212,7 +212,7 @@ export function BuildPage() {
 
   const detailsMap = useMemo(() => {
     const map: Record<number, ItemDetails> = {};
-    detailsData?.items?.forEach(item => { map[item.id] = item; });
+    detailsData?.forEach(item => { map[item.id] = item; });
     return map;
   }, [detailsData]);
 

@@ -260,11 +260,7 @@ function AccountAchievementsSection({
     return { text: 'В процессе', color: 'text-indigo-400' };
   };
 
-  const sorted = [...achievements].sort((a: any, b: any) => {
-    if (a.done && !b.done) return 1;
-    if (!a.done && b.done) return -1;
-    return 0;
-  });
+  const sorted = [...achievements].sort((a: any, b: any) => (a.id || 0) - (b.id || 0));
 
   return (
     <Card>

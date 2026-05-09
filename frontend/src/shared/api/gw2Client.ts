@@ -111,7 +111,7 @@ export const gw2Client = {
     const { data } = await apiClient.get<ItemDetailsListResponse>('/items/details', {
       params: { item_ids: itemIds.join(',') },
     });
-    return data;
+    return data.items;
   },
 
   clearCache: async () => {
@@ -202,7 +202,7 @@ export const gw2Client = {
     const { data } = await apiClient.get('/recipes', {
       params: { ids: ids.join(',') },
     });
-    return data;
+    return data.recipes;
   },
 
   searchItems: async (query: string) => {

@@ -5,11 +5,11 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 30000,
+  timeout: 300000,
 });
 
 apiClient.interceptors.request.use((config) => {
-  const apiKey = sessionStorage.getItem('gw2_api_key');
+  const apiKey = sessionStorage.getItem('gw2_api_key') || localStorage.getItem('gw2_api_key_saved');
   if (apiKey) {
     config.headers.Authorization = `Bearer ${apiKey}`;
   }

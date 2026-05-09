@@ -5,14 +5,14 @@ from utils.config import config
 
 DEEPSEEK_API_BASE = "https://api.deepseek.com"
 DEEPSEEK_MODEL = "deepseek-chat"
-REQUEST_TIMEOUT = 60.0
+REQUEST_TIMEOUT = 120.0
 
 
 async def analyze(
     prompt: str,
     api_key: str,
     temperature: float = 0.3,
-    max_tokens: int = 4096,
+    max_tokens: int = 10000,
 ) -> str:
     if not api_key:
         api_key = config.deepseek_api_key or ""

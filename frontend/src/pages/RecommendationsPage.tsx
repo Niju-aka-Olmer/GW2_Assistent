@@ -314,7 +314,14 @@ export function RecommendationsPage() {
 
             {currentError && !isAnalyzing && !viewingHistoryId && (
               <div className="text-red-400 text-sm">
-                {(currentError as any)?.response?.data?.detail || 'Ошибка анализа. Проверьте API ключ.'}
+                {(() => {
+                  const e = currentError as any;
+                  const detail = e?.response?.data?.detail;
+                  if (detail) return detail;
+                  if (e?.code === 'ECONNABORTED') return 'Таймаут запроса (сервер не ответил вовремя). Попробуйте ещё раз.';
+                  if (e?.message) return e.message;
+                  return 'Ошибка анализа. Проверьте API ключ.';
+                })()}
               </div>
             )}
 

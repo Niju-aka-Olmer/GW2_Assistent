@@ -2,6 +2,7 @@ import asyncio
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.requests import Request
 
 from api.endpoints import router
 from api.gw2_client import preload_item_name_cache
@@ -26,6 +27,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def log_deepseek_requests(request: Request, call_next):
+    if "/deepseek/analyze-build" in request.url.path or "/deepseek/analyze-inventory" in request.url.path or "/deepseek/analyze-trading-post" in request.url.path:
+        body = await request.body()
+        logger.info(f"=== DEEPSEEK REQUEST BODY === {body}")
+    response = await call_next(request)
+    return response
+
 
 app.include_router(router)
 

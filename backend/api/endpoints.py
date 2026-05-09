@@ -76,6 +76,22 @@ def _strip_gw2_tags(text: Optional[str]) -> Optional[str]:
     return text
 
 
+def _get_build_specs(build_data: dict) -> list:
+    """Extract specializations from build data (handles buildtabs/active nested format)."""
+    inner = build_data.get("build", {})
+    if inner:
+        return inner.get("specializations", [])
+    return build_data.get("specializations", [])
+
+
+def _get_build_skills(build_data: dict) -> dict:
+    """Extract skills from build data (handles buildtabs/active nested format)."""
+    inner = build_data.get("build", {})
+    if inner:
+        return inner.get("skills", {})
+    return build_data.get("skills", {})
+
+
 def _sanitize_item(item: dict) -> dict:
     """Clean up item data by stripping GW2 markup tags and extracting all possible attributes."""
     if "description" in item:
@@ -238,22 +254,33 @@ async def character_build(
     core = await get_character_core(api_key, name)
     equipment_data = await get_character_equipment(api_key, name)
 
-    spec_ids = [s["id"] for s in build_data.get("specializations", [])]
+    spec_ids = [s["id"] for s in _get_build_specs(build_data)]
     specs_info = {}
     if spec_ids:
         specs_raw = await get_specialization_details(spec_ids)
         for s in specs_raw:
             specs_info[s["id"]] = s
 
-    skill_ids = list(build_data.get("skills", {}).values())
+    raw_skills = _get_build_skills(build_data)
+    flat_skill_ids = []
+    skill_entries = []
+    for slot_name, skill_id_or_list in raw_skills.items():
+        if isinstance(skill_id_or_list, list):
+            for sid in skill_id_or_list:
+                flat_skill_ids.append(sid)
+                skill_entries.append((slot_name, sid))
+        else:
+            flat_skill_ids.append(skill_id_or_list)
+            skill_entries.append((slot_name, skill_id_or_list))
+
     skills_info = {}
-    if skill_ids:
-        skills_raw = await get_skill_details(skill_ids)
+    if flat_skill_ids:
+        skills_raw = await get_skill_details(flat_skill_ids)
         for s in skills_raw:
             skills_info[s["id"]] = s
 
     specializations = []
-    for spec in build_data.get("specializations", []):
+    for spec in _get_build_specs(build_data):
         spec_id = spec["id"]
         info = specs_info.get(spec_id, {})
         specializations.append(
@@ -351,7 +378,7 @@ async def character_full(
     wallet_enriched.sort(key=lambda x: x["order"])
 
     # Specializations with details
-    spec_ids = [s["id"] for s in build_data.get("specializations", [])]
+    spec_ids = [s["id"] for s in _get_build_specs(build_data)]
     specs_info = {}
     if spec_ids:
         specs_raw = await get_specialization_details(spec_ids)
@@ -359,7 +386,7 @@ async def character_full(
             specs_info[s["id"]] = s
 
     specializations = []
-    for spec in build_data.get("specializations", []):
+    for spec in _get_build_specs(build_data):
         spec_id = spec["id"]
         info = specs_info.get(spec_id, {})
         trait_details = []
@@ -378,22 +405,32 @@ async def character_full(
             "name": info.get("name", f"Specialization {spec_id}"),
             "icon": info.get("icon", ""),
             "background": info.get("background", ""),
-            "all_traits": trait_details,
+            "traits": trait_details,
             "selected_traits": spec.get("traits", []),
         })
 
-    # Skills with details
-    skill_ids = list(build_data.get("skills", {}).values())
+    # Skills with details (flatten utilities list)
+    raw_skills = _get_build_skills(build_data)
+    flat_skill_ids = []
+    skill_entries = []
+    for slot_name, skill_id_or_list in raw_skills.items():
+        if isinstance(skill_id_or_list, list):
+            for sid in skill_id_or_list:
+                flat_skill_ids.append(sid)
+                skill_entries.append((slot_name, sid))
+        else:
+            flat_skill_ids.append(skill_id_or_list)
+            skill_entries.append((slot_name, skill_id_or_list))
     skills_info = {}
-    if skill_ids:
-        skills_raw = await get_skill_details(skill_ids)
+    if flat_skill_ids:
+        skills_raw = await get_skill_details(flat_skill_ids)
         for s in skills_raw:
             skills_info[s["id"]] = s
-    skill_slots = build_data.get("skills", {})
     skills = {}
-    for slot_name, skill_id in skill_slots.items():
+    for slot_name, skill_id in skill_entries:
         info = skills_info.get(skill_id, {})
-        skills[slot_name] = {
+        key = f"{slot_name}_{skill_id}"
+        skills[key] = {
             "id": skill_id,
             "name": info.get("name", f"Skill {skill_id}"),
             "icon": info.get("icon", ""),
@@ -646,22 +683,64 @@ async def deepseek_analyze_build(
     core = await get_character_core(api_key, name)
     equipment_data = await get_character_equipment(api_key, name)
 
-    spec_ids = [s["id"] for s in build_data.get("specializations", [])]
+    spec_ids = [s["id"] for s in _get_build_specs(build_data)]
     specs_info = {}
     if spec_ids:
         specs_raw = await get_specialization_details(spec_ids)
         for s in specs_raw:
             specs_info[s["id"]] = s
 
-    specializations = []
-    for spec in build_data.get("specializations", []):
+    # Collect all trait IDs across all specializations and fetch their details
+    all_trait_ids = set()
+    for spec in _get_build_specs(build_data):
         spec_id = spec["id"]
         info = specs_info.get(spec_id, {})
+        for t in info.get("traits", []):
+            all_trait_ids.add(t["id"])
+    trait_details = {}
+    if all_trait_ids:
+        traits_raw = await get_trait_details(list(all_trait_ids))
+        for t in traits_raw:
+            trait_details[t["id"]] = t
+
+    # Build a mapping from trait tier to readable name
+    TIER_NAMES = {1: "Adept", 2: "Master", 3: "Grandmaster"}
+    SLOT_NAMES = {1: "Левая колонка", 2: "Средняя колонка", 3: "Правая колонка"}
+
+    specializations = []
+    for spec in _get_build_specs(build_data):
+        spec_id = spec["id"]
+        info = specs_info.get(spec_id, {})
+        selected_ids = spec.get("traits", [])
+        selected_traits_info = []
+        for tid in selected_ids:
+            t = trait_details.get(tid, {})
+            if t:
+                selected_traits_info.append({
+                    "id": tid,
+                    "name": t.get("name", f"Trait {tid}"),
+                    "icon": t.get("icon", ""),
+                    "description": _strip_gw2_tags(t.get("description", "")),
+                    "tier": TIER_NAMES.get(t.get("tier", 0), f"Tier {t.get('tier', 0)}"),
+                    "slot": SLOT_NAMES.get(t.get("slot", 0), f"Slot {t.get('slot', 0)}"),
+                })
+        all_traits_info = []
+        for t in info.get("traits", []):
+            all_traits_info.append({
+                "id": t["id"],
+                "name": t.get("name", ""),
+                "icon": t.get("icon", ""),
+                "description": _strip_gw2_tags(t.get("description", "")),
+                "tier": TIER_NAMES.get(t.get("tier", 0), f"Tier {t.get('tier', 0)}"),
+                "slot": SLOT_NAMES.get(t.get("slot", 0), f"Slot {t.get('slot', 0)}"),
+            })
         specializations.append({
             "id": spec_id,
             "name": info.get("name", f"Specialization {spec_id}"),
             "icon": info.get("icon", ""),
-            "selected_traits": spec.get("traits", []),
+            "background": info.get("background", ""),
+            "all_traits": all_traits_info,
+            "selected_traits": selected_traits_info,
         })
 
     equipment_item_ids = [
@@ -673,17 +752,61 @@ async def deepseek_analyze_build(
         for item in items_raw:
             equipment_details[item["id"]] = _sanitize_item(item)
 
+    # Calculate combined stats from all equipment
+    combined_stats = {}
+    for eq in equipment_data.get("equipment", []):
+        raw_stats = eq.get("stats") or {}
+        attrs_raw = raw_stats.get("attributes") if isinstance(raw_stats, dict) else None
+        if attrs_raw and isinstance(attrs_raw, dict):
+            for attr_name, value in attrs_raw.items():
+                if isinstance(value, (int, float)):
+                    combined_stats[attr_name] = combined_stats.get(attr_name, 0) + value
+        elif attrs_raw and isinstance(attrs_raw, list):
+            for a in attrs_raw:
+                if isinstance(a, dict) and "attribute" in a and "modifier" in a:
+                    attr_name = a["attribute"]
+                    combined_stats[attr_name] = combined_stats.get(attr_name, 0) + a["modifier"]
+
+    # Fetch upgrade (rune/sigil) names for equipment
+    upgrade_ids = []
+    for eq in equipment_data.get("equipment", []):
+        upgrades = eq.get("upgrades", [])
+        if upgrades:
+            upgrade_ids.extend(upgrades)
+    upgrade_details = {}
+    if upgrade_ids:
+        upgrades_raw = await get_item_details(list(set(upgrade_ids)))
+        for u in upgrades_raw:
+            upgrade_details[u["id"]] = _sanitize_item(u)
+
     equipment = []
     for eq in equipment_data.get("equipment", []):
         item_info = equipment_details.get(eq["id"], {})
+
+        # Resolve upgrades (runes/sigils) to names
+        upgrades = eq.get("upgrades", [])
+        upgrade_names = []
+        for uid in upgrades:
+            u = upgrade_details.get(uid, {})
+            if u:
+                upgrade_names.append(u.get("name", f"Upgrade {uid}"))
+            else:
+                upgrade_names.append(None)
+
         equipment.append({
             "id": eq["id"],
             "name": item_info.get("name", f"Item {eq['id']}"),
             "icon": item_info.get("icon", ""),
             "slot": eq.get("slot", ""),
+            "slot_name": item_info.get("details", {}).get("type", eq.get("slot", "")),
             "rarity": item_info.get("rarity", "Basic"),
             "level": item_info.get("level", 0),
             "stats": eq.get("stats"),
+            "upgrades": upgrade_names,
+            "infusions": eq.get("infusions", []),
+            "suffix": item_info.get("suffix", ""),
+            "defense": item_info.get("defense"),
+            "weight_class": item_info.get("weight_class"),
         })
 
     # Try to fetch metabattle build info
@@ -701,6 +824,7 @@ async def deepseek_analyze_build(
         profession=profession,
         specializations=specializations,
         equipment=equipment,
+        combined_stats=combined_stats,
         metabattle_content=metabattle_content,
     )
 
