@@ -1,5 +1,7 @@
 import asyncio
 import logging
+import re
+import httpx
 from fastapi import APIRouter, Header, HTTPException, Query
 from fastapi.responses import Response
 from typing import Optional
@@ -25,6 +27,8 @@ from api.gw2_client import (
     get_commerce_exchange,
     get_account_wallet,
     get_currencies,
+    get_materials,
+    get_material_categories,
     search_items_by_name,
     get_account,
     get_achievement_groups,
@@ -52,14 +56,23 @@ from api.gw2_client import (
     get_professions,
     get_profession_details,
     get_recipe_details,
+    get_wizardsvault_daily,
+    get_wizardsvault_weekly,
+    get_wizardsvault_special,
+    get_wizardsvault_listings,
+    get_wizardsvault_season,
+    get_wizardsvault_all_objectives,
+    get_wizardsvault_all_listings,
 )
 from api.deepseek_client import analyze as deepseek_analyze
 from services.build_analyzer import analyze_build_text, fetch_metabattle_build, get_metabattle_build_name
 from services.inventory_analyzer import analyze_inventory_text, INVENTORY_INSTRUCTIONS
 from services.trading_post_analyzer import analyze_trading_post_prompt
-from cache.memory_cache import character_cache, item_cache, price_cache
+from cache.memory_cache import MemoryCache, character_cache, item_cache, price_cache
 from models.character import CharacterSummary
 from utils.errors import AuthError
+
+translate_cache = MemoryCache(maxsize=2048, ttl=86400)  # 24h TTL for translations
 
 router = APIRouter(prefix="/api")
 
@@ -68,12 +81,88 @@ def _strip_gw2_tags(text: Optional[str]) -> Optional[str]:
     """Remove GW2 chat markup tags like <c=@flavor>...</c> from text."""
     if not text:
         return text
-    import re
     text = re.sub(r'<c?=@?\w*>[^<]*</c>', '', text)
     text = re.sub(r'<c?=@?\w*/>', '', text)
     text = re.sub(r'<br[^>]*>', '\n', text)
     text = text.strip()
     return text
+
+
+_translate_semaphore = asyncio.Semaphore(3)
+
+async def _translate_single(text: str, client: httpx.AsyncClient) -> str:
+    """Translate a single text from English to Russian via Google Translate."""
+    async with _translate_semaphore:
+        try:
+            params = {"client": "gtx", "sl": "en", "tl": "ru", "dt": "t", "q": text}
+            resp = await client.get(
+                "https://translate.googleapis.com/translate_a/single",
+                params=params,
+                timeout=5.0,
+            )
+            if resp.status_code == 200 and resp.text:
+                data = resp.json()
+                if isinstance(data, list) and len(data) > 0 and isinstance(data[0], list) and len(data[0]) > 0:
+                    entry = data[0][0]
+                    if isinstance(entry, list) and len(entry) > 0:
+                        trans = str(entry[0])
+                        if trans and trans.strip() and any(ord(c) > 127 for c in trans):
+                            return trans
+        except Exception as e:
+            logger.warning(f"Translation failed for '{text[:50]}': {e}")
+    return text
+
+
+async def _translate_texts(texts: list[str]) -> list[str]:
+    """Translate multiple texts from English to Russian via Google Translate (free, no API key).
+    Max 15 texts per call to avoid timeouts."""
+    if not texts:
+        return texts
+
+    results = []
+    uncached_indices = []
+    uncached_texts = []
+
+    for i, t in enumerate(texts):
+        if not t or not t.strip():
+            results.append(t)
+        else:
+            cached = translate_cache.get(t)
+            if cached is not None:
+                results.append(cached)
+            else:
+                results.append(None)
+                uncached_indices.append(i)
+                uncached_texts.append(t)
+
+    if not uncached_texts:
+        return results
+
+    # Limit to 15 texts to avoid timeouts
+    to_translate = uncached_texts[:15]
+    to_translate_indices = uncached_indices[:15]
+
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            tasks = [_translate_single(t, client) for t in to_translate]
+            translated_batch = await asyncio.gather(*tasks, return_exceptions=True)
+            for j, idx in enumerate(to_translate_indices):
+                trans = translated_batch[j]
+                if isinstance(trans, str):
+                    results[idx] = trans
+                    translate_cache.set(uncached_texts[idx], trans)
+                else:
+                    results[idx] = uncached_texts[idx]
+    except Exception as e:
+        logger.warning(f"Translation batch failed: {e}")
+
+    # Fill any remaining uncached texts with originals
+    for i in range(len(uncached_texts)):
+        idx = uncached_indices[i]
+        if results[idx] is None:
+            results[idx] = uncached_texts[i]
+
+    return results
 
 
 def _get_build_specs(build_data: dict) -> list:
@@ -593,6 +682,71 @@ async def account_bank(authorization: Optional[str] = Header(None)):
     return {"bank": bank_slots}
 
 
+_material_categories_cache: list[dict] | None = None
+
+
+async def _get_material_categories() -> dict[int, str]:
+    """Get material categories mapping (ID -> name), cached."""
+    global _material_categories_cache
+    if _material_categories_cache is None:
+        try:
+            _material_categories_cache = await get_material_categories()
+        except Exception as e:
+            logger.warning(f"Failed to fetch material categories: {e}")
+            _material_categories_cache = []
+    return {c["id"]: c.get("name", "Other") for c in _material_categories_cache}
+
+
+@router.get("/account/materials")
+async def account_materials(authorization: Optional[str] = Header(None)):
+    api_key = _get_api_key(authorization)
+    materials_data = await get_materials(api_key)
+
+    if not materials_data:
+        return {"materials": []}
+
+    item_ids = list(set(m["id"] for m in materials_data))
+
+    items_info = {}
+    if item_ids:
+        items_raw = await get_item_details(item_ids)
+        for item in items_raw:
+            items_info[item["id"]] = item
+
+    prices_map = {}
+    if item_ids:
+        prices = await get_commerce_prices(item_ids)
+        for p in prices:
+            prices_map[p["id"]] = p
+
+    categories_map = await _get_material_categories()
+
+    enriched = []
+    for mat in materials_data:
+        item_id = mat["id"]
+        item_info = items_info.get(item_id, {})
+        price_info = prices_map.get(item_id, {})
+
+        enriched.append({
+            "id": item_id,
+            "name": item_info.get("name", f"Item {item_id}"),
+            "icon": item_info.get("icon", ""),
+            "rarity": item_info.get("rarity", "Basic"),
+            "level": item_info.get("level", 0),
+            "type": item_info.get("type", ""),
+            "count": mat.get("count", 0),
+            "category_id": mat.get("category", 0),
+            "category_name": categories_map.get(mat.get("category", 0), "Other"),
+            "vendor_value": item_info.get("vendor_value", 0),
+            "flags": item_info.get("flags", []),
+            "tp_buy": price_info.get("buys", {}).get("unit_price", 0) if price_info else 0,
+            "tp_sell": price_info.get("sells", {}).get("unit_price", 0) if price_info else 0,
+        })
+
+    enriched.sort(key=lambda x: (x["category_name"], x["name"]))
+    return {"materials": enriched}
+
+
 @router.get("/items/prices")
 async def item_prices(
     item_ids: str,
@@ -1044,6 +1198,37 @@ async def achievements_list(
         return {"achievements": []}
     id_list = [int(x.strip()) for x in ids.split(",") if x.strip()]
     achievements = await get_achievements(id_list)
+
+    name_texts = []
+    desc_texts = []
+    name_indices = []
+    desc_indices = []
+    for i, ach in enumerate(achievements):
+        name = ach.get("name", "")
+        if name:
+            name_indices.append(i)
+            name_texts.append(name)
+        desc = ach.get("description", "")
+        if desc:
+            desc_indices.append(i)
+            desc_texts.append(desc)
+
+    try:
+        translated_names = await _translate_texts(name_texts) if name_texts else []
+    except Exception:
+        translated_names = []
+    try:
+        translated_descs = await _translate_texts(desc_texts) if desc_texts else []
+    except Exception:
+        translated_descs = []
+
+    for j, idx in enumerate(name_indices):
+        if j < len(translated_names) and translated_names[j]:
+            achievements[idx]["name"] = translated_names[j]
+    for j, idx in enumerate(desc_indices):
+        if j < len(translated_descs) and translated_descs[j]:
+            achievements[idx]["description"] = translated_descs[j]
+
     return {"achievements": achievements}
 
 
@@ -1233,6 +1418,211 @@ async def recipes_list(
     id_list = [int(x.strip()) for x in ids.split(",") if x.strip()]
     recipes = await get_recipe_details(id_list)
     return {"recipes": recipes}
+
+
+_TRANSLATE_PATTERNS = [
+    (r"\bComplete (\d+) Events?\b", r"Завершите \1 событий"),
+    (r"\bComplete (\d+) Group Events?\b", r"Завершите \1 групповых событий"),
+    (r"\bComplete (\d+) Bounty Missions? in ([\w\s]+) or Group Events?\b", r"Завершите \1 заданий охоты в \2 или групповых событий"),
+    (r"\bComplete the ([\w\s]+) Jumping Puzzle\b", r"Пройдите головоломку \1"),
+    (r"\bDefeat (\d+) Veteran-Rank Enemies?\b", r"Убейте \1 врагов-ветеранов"),
+    (r"\bDefeat (\d+) ([^bE][\w\s]+?) Enemies?\b", r"Убейте \1 противников: \2"),
+    (r"\bDefeat (\d+) Enemies?\b", r"Убейте \1 врагов"),
+    (r"\bDefeat the ([\w\s]+) World Boss\b", r"Убейте мирового босса: \1"),
+    (r"\bDefeat the ([\w\s]+) World Boss or Complete Events in ([\w\s]+)\b", r"Убейте мирового босса \1 или завершите события в \2"),
+    (r"\bComplete (\d+) Rift Hunts? in ([\w\s]+) or Group Events?\b", r"Завершите \1 разломов в \2 или групповых событий"),
+    (r"\bComplete (\d+) Rift Hunt(?:ing)?s?\b", r"Завершите \1 разломов"),
+    (r"\bGather (\d+) (?:[\w\s]+?) from ([\w\s]+) Logging Nodes?\b", r"Соберите \1 ед. с лесозаготовок в \2"),
+    (r"\bGather (\d+) (?:[\w\s]+?) from ([\w\s]+) Mining Nodes?\b", r"Соберите \1 ед. с месторождений в \2"),
+    (r"\bGather (\d+) (?:[\w\s]+?) from ([\w\s]+) Harvesting Nodes?\b", r"Соберите \1 ед. с растений в \2"),
+    (r"\bGather (\d+) (?:[\w\s]+?) from ([\w\s]+)\b", r"Добудьте \1 ед. в \2"),
+    (r"\bGather (\d+) (?:[\w\s]+?) by ([\w\s,]+)\b", r"Добудьте \1 ед. с помощью: \2"),
+    (r"\bGather (\d+) Crafting Resources?\b", r"Соберите \1 ресурсов"),
+    (r"\bKill (\d+) ([\w\s]+) in ([\w\s]+)\b", r"Убейте \1 \2 в \3"),
+    (r"\bEarn (\d+) (?:[\w\s]+?) from ([\w\s]+)\b", r"Заработайте \1 ед. в \2"),
+    (r"\bSalvage (\d+) Items?\b", r"Разберите \1 предметов"),
+    (r"\bIdentify (\d+) (?:Pieces? of )?Unidentified Gears?\b", r"Опознайте \1 неопознанной экипировки"),
+    (r"\bIdentify (\d+) (?:Pieces? of )?Unidentified [\w\s]+\b", r"Опознайте \1 неопознанных предметов"),
+    (r"\bCraft (\d+) Items?\b", r"Создайте \1 предметов"),
+    (r"\bView (\d+) Vist(?:a|as)\b", r"Посетите \1 точек обзора"),
+    (r"\bCompete in (\d+) (?:Structured )?Player vs\.? Player ([\w\s]+)\b", r"Сыграйте \1 PvP-матч: \2"),
+    (r"\bCompete in (\d+) (?:Structured )?Player vs\.? Player Matches?\b", r"Сыграйте \1 PvP-матчей"),
+    (r"\bParticipate in (\d+) Defense Events? in World vs\.? World\b", r"Участвуйте в \1 оборонит. событий WvW"),
+    (r"\bParticipate in (\d+) (?:Player vs\.? Player )?Tournament Match(?:es)?\b", r"Сыграйте \1 турнирных PvP-матчей"),
+    (r"\bLoot (\d+) Defeated Enemies?\b", r"Обыщите \1 поверженных врагов"),
+    (r"\bLoot (\d+) [\w\s]+\b", r"Соберите трофеи: \1"),
+    (r"\bDodge (\d+) (?:Enemy )?Attacks? Using (?:a )?Dodge(?: Roll)?\b", r"Уклонитесь от \1 атак перекатом"),
+    (r"\bDodge (\d+) [\w\s]+\b", r"Уклонитесь: \1"),
+    (r"\bBreak (\d+) Defiance Bars?\b", r"Сломайте \1 полос непоколебимости"),
+    (r"\bBreak (\d+) Enemy(?:'s)? Defiance Bar(?:s)?\b", r"Сломайте \1 полос непоколебимости врагов"),
+    (r"\bApply (\d+) Boons? to Allies?\b", r"Наложите \1 благ на союзников"),
+    (r"\bApply (\d+) Conditions? to Enemies?\b", r"Наложите \1 состояний на врагов"),
+    (r"\bCombo (\d+) Finishers?\b", r"Выполните \1 комбо-приёмов"),
+    (r"\bPerform (\d+) Combo(?: Skills?)? in Combat\b", r"Выполните \1 комбо в бою"),
+    (r"\bComplete (\d+) Renown Hearts?\b", r"Завершите \1 сердец славы"),
+    (r"\bComplete (\d+) Repeatable Renown Hearts? in ([\w\s]+)\b", r"Завершите \1 повторяемых сердец в \2"),
+    (r"\bComplete (\d+) Dungeons?\b", r"Пройдите \1 подземелий"),
+    (r"\bComplete (\d+) Fractals? in the Fractals of the Mists\b", r"Пройдите \1 фракталов в Мглистых фракталах"),
+    (r"\bComplete (?:a|Any) Fractals? in the Fractals of the Mists\b", r"Пройдите фрактал в Мглистых фракталах"),
+    (r"\bComplete (\d+) (?:Fractals?|Quickplay Fractals?)\b", r"Пройдите \1 фракталов"),
+    (r"\bComplete (\d+) Strike Missions?\b", r"Пройдите \1 ударных миссий"),
+    (r"\bComplete (?:Any|the) Raid Encounter\b", r"Пройдите любого рейдового босса"),
+    (r"\bComplete (\d+) Quickplay Raids?\b", r"Пройдите \1 быстрых рейдов"),
+    (r"\bComplete the ([\w\s]+) Raid or (\d+) Quickplay Raids?\b", r"Пройдите рейд \1 или \2 быстрых рейдов"),
+    (r"\bComplete the ([\w\s]+) Meta-Event\b", r"Завершите мета-событие \1"),
+    (r"\bComplete (?:a )?Meta-Event or Events in ([\w\s]+) or Events in ([\w\s]+)\b", r"Завершите мета-событие или события в \1 или в \2"),
+    (r"\bComplete (\d+) (?:Meta-)?Events? in ([\w\s]+)\b", r"Завершите \1 событий в \2"),
+    (r"\bComplete (\d+) Meta-Events? in ([\w\s]+)\b", r"Завершите \1 мета-событий в \2"),
+    (r"\bRevive (\d+) Allies?\b", r"Воскресите \1 союзников"),
+    (r"\bCatch (\d+) Fish\b", r"Поймайте \1 рыб"),
+    (r"\bRestore ([\d,]+) Health to Yourself or Allied Players?\b", r"Восстановите \1 здоровья себе или союзникам"),
+    (r"\bDeal ([\d,]+) Damage to Enemy Players?\b", r"Нанесите \1 урона вражеским игрокам"),
+    (r"\bDeal ([\d,]+) Damage (?:to Enemy Players )?in (?:Structured )?Player vs\.? Player or World vs\.? World\b", r"Нанесите \1 урона в PvP или WvW"),
+    (r"\bDeal ([\d,]+) Damage Using Siege Equipment\b", r"Нанесите \1 урона осадными орудиями"),
+    (r"\bEarn (\d+) (?:PvP )?Rank Points? in (?:PvP|Structured Player vs\.? Player) Matches?\b", r"Заработайте \1 очков ранга в PvP"),
+    (r"\bEarn (\d+) WvW Experience\b", r"Заработайте \1 опыта WvW"),
+    (r"\bEarn (\d+) Reward(?:s)? from (?:a |Structured )?PvP Reward Tracks?\b", r"Получите \1 наград PvP"),
+    (r"\bEarn (?:a )?Top Scoreboard Stat on Your Team in (?:a )?PvP Match (\d+) Times?\b", r"Займите топ-место в PvP \1 раз"),
+    (r"\bEarn (?:a )?Top Scoreboard Stat on Your Team in (?:a )?PvP Match\b", r"Займите топ-место в PvP"),
+    (r"\bWin (\d+) (?:Games? in |Structured )?Player vs\.? Player(?: Rated Games?)?\b", r"Победите в \1 PvP-матчах"),
+    (r"\bWin (\d+) Game in Conquest Mode after Completing the Map(?:'s)? Secondary Objective\b", r"Победите в 1 Conquest-матче выполнив доп. цель"),
+    (r"\bCapture (\d+) (?:World vs\.? World )?Objectives?\b", r"Захватите \1 целей WvW"),
+    (r"\bCapture (\d+) (?:Camp(?: Objective)?|Camps?) in World vs\.? World\b", r"Захватите \1 лагерей в WvW"),
+    (r"\bCapture (\d+) (?:Keep|Keeps) in World vs\.? World\b", r"Захватите \1 замков в WvW"),
+    (r"\bCapture (\d+) (?:Tower|Towers) in World vs\.? World\b", r"Захватите \1 башен в WvW"),
+    (r"\bCapture (\d+) (?:Ruin, Shrine, or Mercenary Camp )?Ru(?:in|ins?|ins, Shrine(?:s)?, or Mercenary Camps?) in World vs\.? World\b", r"Захватите \1 руин/святилищ/лагерей в WvW"),
+    (r"\bCapture (\d+) Sentry Points? in World vs\.? World\b", r"Захватите \1 сторожевых точек в WvW"),
+    (r"\bEscort (\d+) (?:Allied )?Supply Caravans? to (?:Their )?Destinations? in World vs\.? World\b", r"Проводите \1 караванов в WvW"),
+    (r"\bDestroy (\d+) (?:Enemy )?Supply Caravans? in World vs\.? World\b", r"Уничтожьте \1 вражеских караванов в WvW"),
+    (r"\bDefend (\d+) World vs\.? World Objectives?\b", r"Защитите \1 целей WvW"),
+    (r"\bDefeat (\d+) (?:World vs\.? World )?Invaders? in World vs\.? World\b", r"Убейте \1 захватчиков в WvW"),
+    (r"\bDefeat (\d+) Enemy (?:Supply Caravan(?:s)?|Guards?) in World vs\.? World\b", r"Убейте \1 вражеских стражей в WvW"),
+    (r"\bNeutralize (\d+) Enemy Capture Points? in Rated (?:Player vs\.? Player )?Conquest Matches?\b", r"Нейтрализуйте \1 точек захвата в PvP"),
+    (r"\bDefeat (\d+) Enemies? While Defending a Capture Point in Rated (?:Player vs\.? Player )?Conquest Matches?\b", r"Убейте \1 врагов защищая точку в PvP"),
+    (r"\bDefeat (\d+) (?:Enemy )?Players? in (?:a )?Structured (?:Player vs\.? Player|PvP)(?: Match)?\b", r"Убейте \1 игроков в PvP"),
+    (r"\bDefeat (\d+) Enemies? in the ([\w\s]+)\b", r"Убейте \1 врагов в \2"),
+    (r"\bDefeat ([\w\s]+) or ([\w\s]+)\b", r"Убейте \1 или \2"),
+    (r"\bDefeat (\d+) ([\w\s]+?) Enemies?\b", r"Убейте \1 противников: \2"),
+    (r"\bLog In\b", r"Войдите в игру"),
+    (r"\bCollect (\d+) Spears? from an Alliance Field Quartermaster\b", r"Соберите \1 копий у Альянсового квартирмейстера"),
+    (r"\bCollect Any (\d+) [\w\s,]+\b", r"Соберите любых \1 миниатюр"),
+    (r"\bCollect (\d+) Relics? from Visions of Eternity Set (\d+)\b", r"Соберите \1 реликвий из Visions of Eternity набора \2"),
+    (r"\bUnlock Any (\d+) Item Skins?\b", r"Откройте любых \1 скинов предметов"),
+    (r"\bSpeak with ([\w\s]+) about the ([\w\s]+) Legendary Ring\b", r"Поговорите с \1 о легендарном кольце \2"),
+    (r"\bComplete (\d+) Events\b", r"Завершите \1 событий"),
+    (r"\bComplete a Convergence or Fractal\b", r"Пройдите Конвергенцию или Фрактал"),
+]
+
+
+
+def _translate_title(title: str) -> str:
+    for pattern, replacement in _TRANSLATE_PATTERNS:
+        translated = re.sub(pattern, replacement, title)
+        if translated != title:
+            return translated
+    return title
+
+
+async def _enrich_wizardsvault(data: dict) -> dict:
+    from api.gw2_client import get_wizardsvault_all_objectives
+    all_obj = await get_wizardsvault_all_objectives()
+    obj_map = {}
+    for o in all_obj:
+        obj_map[o["id"]] = o
+
+    enriched_objectives = []
+    for obj in data.get("objectives", []):
+        meta = obj_map.get(obj["id"], {})
+        enriched_objectives.append({
+            "id": obj["id"],
+            "title": _translate_title(meta.get("title", f"Задание #{obj['id']}")),
+            "track": meta.get("track", "PvE"),
+            "acclaim": meta.get("acclaim", 0),
+            "progress_current": obj.get("progress_current", 0),
+            "progress_complete": obj.get("progress_complete", 0),
+            "claimed": obj.get("claimed", False),
+        })
+
+    return {"objectives": enriched_objectives}
+
+
+@router.get("/wizardsvault/daily")
+async def wizardsvault_daily(
+    authorization: Optional[str] = Header(None),
+    api_key: Optional[str] = Query(None),
+):
+    key = api_key or _get_api_key(authorization) if authorization or api_key else None
+    if not key:
+        raise HTTPException(status_code=401, detail="API key required")
+    data = await get_wizardsvault_daily(key)
+    return await _enrich_wizardsvault(data)
+
+
+@router.get("/wizardsvault/weekly")
+async def wizardsvault_weekly(
+    authorization: Optional[str] = Header(None),
+    api_key: Optional[str] = Query(None),
+):
+    key = api_key or _get_api_key(authorization) if authorization or api_key else None
+    if not key:
+        raise HTTPException(status_code=401, detail="API key required")
+    data = await get_wizardsvault_weekly(key)
+    return await _enrich_wizardsvault(data)
+
+
+@router.get("/wizardsvault/special")
+async def wizardsvault_special(
+    authorization: Optional[str] = Header(None),
+    api_key: Optional[str] = Query(None),
+):
+    key = api_key or _get_api_key(authorization) if authorization or api_key else None
+    if not key:
+        raise HTTPException(status_code=401, detail="API key required")
+    data = await get_wizardsvault_special(key)
+    return await _enrich_wizardsvault(data)
+
+
+@router.get("/wizardsvault/listings")
+async def wizardsvault_listings(
+    authorization: Optional[str] = Header(None),
+    api_key: Optional[str] = Query(None),
+):
+    key = api_key or _get_api_key(authorization) if authorization or api_key else None
+    if not key:
+        raise HTTPException(status_code=401, detail="API key required")
+    data = await get_wizardsvault_listings(key)
+    all_listings = await get_wizardsvault_all_listings()
+    season = await get_wizardsvault_season()
+
+    listings_map = {}
+    for listing in all_listings:
+        listings_map[listing["id"]] = listing
+
+    enriched = []
+    for purchased in data:
+        lid = purchased["id"]
+        info = listings_map.get(lid, {})
+        enriched.append({
+            **purchased,
+            "item_id": info.get("item_id"),
+            "item_count": info.get("item_count"),
+            "price": info.get("price"),
+            "type": info.get("type"),
+        })
+
+    return {
+        "listings": enriched,
+        "season": season,
+    }
+
+
+@router.get("/wizardsvault/objectives")
+async def wizardsvault_objectives():
+    objectives = await get_wizardsvault_all_objectives()
+    return {"objectives": [{
+        **o,
+        "title": _translate_title(o.get("title", f"Задание #{o['id']}"))
+    } for o in objectives]}
 
 
 @router.get("/characters/{name}/render")

@@ -7,9 +7,9 @@ import { Skeleton } from '../shared/ui/Skeleton';
 import { gw2Client } from '../shared/api/gw2Client';
 
 const DAILY_CATEGORY_LABELS: Record<string, string> = {
-  pve: 'PvE',
-  pvp: 'PvP',
-  wvw: 'WvW',
+  pve: 'ПвЕ',
+  pvp: 'ПвП',
+  wvw: 'ПвП-Мист',
 };
 
 const RARITY_COLORS: Record<string, string> = {
@@ -134,7 +134,7 @@ export function CharacterAchievementsPage() {
               <div>
                 <span className="text-text-secondary">Тип: </span>
                 <span className="text-text-primary font-medium">
-                  {accountInfo.access === 'PlayForFree' ? 'Free' : accountInfo.access || '—'}
+                  {accountInfo.access === 'PlayForFree' ? 'Бесплатно' : accountInfo.access || '—'}
                 </span>
               </div>
             )}

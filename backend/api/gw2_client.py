@@ -325,6 +325,22 @@ async def get_currencies(currency_ids: list[int]) -> list[dict]:
     return await _get_batch("currencies", currency_ids)
 
 
+async def get_materials(api_key: str) -> list[dict]:
+    return await _get("account/materials", api_key=api_key)
+
+
+async def get_material_categories() -> list[dict]:
+    """Fetch all material categories. Public endpoint, no API key needed.
+    v2/materials returns a list of ints (category IDs), so we need to
+    fetch full objects via ?ids=...
+    """
+    ids = await _get("materials")
+    if ids:
+        ids_str = ",".join(str(i) for i in ids)
+        return await _get(f"materials?ids={ids_str}")
+    return []
+
+
 async def get_commerce_prices(item_ids: list[int]) -> list[dict]:
     missing_ids = []
     prices_map = {}
@@ -528,6 +544,38 @@ async def get_all_item_ids() -> list[int]:
     if isinstance(ids, list):
         item_id_list_cache.set("all_ids", ids)
     return ids if isinstance(ids, list) else []
+
+
+async def get_wizardsvault_daily(api_key: str) -> dict:
+    return await _get("account/wizardsvault/daily", api_key=api_key)
+
+
+async def get_wizardsvault_weekly(api_key: str) -> dict:
+    return await _get("account/wizardsvault/weekly", api_key=api_key)
+
+
+async def get_wizardsvault_special(api_key: str) -> dict:
+    return await _get("account/wizardsvault/special", api_key=api_key)
+
+
+async def get_wizardsvault_listings(api_key: str) -> list[dict]:
+    return await _get("account/wizardsvault/listings", api_key=api_key)
+
+
+async def get_wizardsvault_season() -> dict:
+    return await _get("wizardsvault")
+
+
+async def get_wizardsvault_all_objectives() -> list[dict]:
+    all_ids = await _get("wizardsvault/objectives")
+    if isinstance(all_ids, list) and all_ids and isinstance(all_ids[0], int):
+        batch_ids = ",".join(str(i) for i in all_ids)
+        return await _get("wizardsvault/objectives", params={"ids": batch_ids})
+    return all_ids if isinstance(all_ids, list) else []
+
+
+async def get_wizardsvault_all_listings() -> list[dict]:
+    return await _get("wizardsvault/listings")
 
 
 async def get_character_render(api_key: str, name: str) -> bytes:

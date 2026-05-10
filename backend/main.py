@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.requests import Request
+from starlette.responses import FileResponse
 import uvicorn
 
 from api.endpoints import router
@@ -84,6 +85,17 @@ if FRONTEND_DIR:
     logger.info(f"Frontend static files mounted from: {FRONTEND_DIR}")
 else:
     logger.warning("Frontend dist directory not found. Run 'npm run build' in frontend/")
+
+
+@app.exception_handler(404)
+async def not_found_handler(request: Request, exc):
+    if request.url.path.startswith("/api/"):
+        from starlette.responses import JSONResponse
+        return JSONResponse({"detail": "Not Found"}, status_code=404)
+    if FRONTEND_DIR and (FRONTEND_DIR / "index.html").exists():
+        return FileResponse(FRONTEND_DIR / "index.html")
+    from starlette.responses import JSONResponse
+    return JSONResponse({"detail": "Not Found"}, status_code=404)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")

@@ -5,6 +5,7 @@ import clsx from 'clsx';
 
 const navLinks = [
   { to: '/', label: 'Персонажи' },
+  { to: '/wizards-vault', label: "Wizard's Vault" },
   { to: '/recommendations', label: 'Рекомендации' },
   { to: '/trading-post', label: 'Аукцион' },
   { to: '/reference', label: 'Справочник' },

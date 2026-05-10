@@ -59,6 +59,26 @@ interface BankResponse {
   } | null)[];
 }
 
+interface MaterialItem {
+  id: number;
+  name: string;
+  icon: string;
+  rarity: string;
+  level: number;
+  type: string;
+  count: number;
+  category_id: number;
+  category_name: string;
+  vendor_value: number;
+  flags: string[];
+  tp_buy: number;
+  tp_sell: number;
+}
+
+interface MaterialsResponse {
+  materials: MaterialItem[];
+}
+
 interface CacheClearResponse {
   status: string;
   message: string;
@@ -97,6 +117,11 @@ export const gw2Client = {
 
   getBank: async () => {
     const { data } = await apiClient.get<BankResponse>('/account/bank');
+    return data;
+  },
+
+  getMaterials: async () => {
+    const { data } = await apiClient.get<MaterialsResponse>('/account/materials');
     return data;
   },
 
@@ -209,6 +234,26 @@ export const gw2Client = {
     const { data } = await apiClient.get('/commerce/search', {
       params: { q: query, page: 0, page_size: 50 },
     });
+    return data;
+  },
+
+  getWizardsVaultDaily: async () => {
+    const { data } = await apiClient.get('/wizardsvault/daily');
+    return data;
+  },
+
+  getWizardsVaultWeekly: async () => {
+    const { data } = await apiClient.get('/wizardsvault/weekly');
+    return data;
+  },
+
+  getWizardsVaultSpecial: async () => {
+    const { data } = await apiClient.get('/wizardsvault/special');
+    return data;
+  },
+
+  getWizardsVaultListings: async () => {
+    const { data } = await apiClient.get('/wizardsvault/listings');
     return data;
   },
 };

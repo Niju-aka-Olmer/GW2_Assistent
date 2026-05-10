@@ -13,7 +13,7 @@ const TABS = [
   { path: (name: string) => `/collections/${encodeURIComponent(name)}`, label: 'Коллекции' },
   { path: (name: string) => `/build/${encodeURIComponent(name)}`, label: 'Экипировка' },
   { path: (name: string) => `/inventory/${encodeURIComponent(name)}`, label: 'Инвентарь' },
-  { path: (name: string) => `/bank/${encodeURIComponent(name)}`, label: 'Банк' },
+  { path: (name: string) => `/materials/${encodeURIComponent(name)}`, label: 'Материалы' },
 ];
 
 function getActiveTab(pathname: string): string {
@@ -24,7 +24,7 @@ function getActiveTab(pathname: string): string {
   if (pathname.startsWith('/collections')) return 'Коллекции';
   if (pathname.startsWith('/build')) return 'Экипировка';
   if (pathname.startsWith('/inventory')) return 'Инвентарь';
-  if (pathname.startsWith('/bank')) return 'Банк';
+  if (pathname.startsWith('/materials')) return 'Материалы';
   return '';
 }
 

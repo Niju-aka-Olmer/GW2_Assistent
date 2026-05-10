@@ -3,7 +3,6 @@ import { CharacterSelectPage } from '../pages/CharacterSelectPage';
 import { CharacterPage } from '../pages/CharacterPage';
 import { BuildPage } from '../pages/BuildPage';
 import { InventoryPage } from '../pages/InventoryPage';
-import { BankPage } from '../pages/BankPage';
 import { RecommendationsPage } from '../pages/RecommendationsPage';
 import { TradingPostPage } from '../pages/TradingPostPage';
 import { CharacterAchievementsPage } from '../pages/CharacterAchievementsPage';
@@ -11,6 +10,8 @@ import { CharacterRaidsPage } from '../pages/CharacterRaidsPage';
 import { CharacterMasteriesPage } from '../pages/CharacterMasteriesPage';
 import { CharacterCollectionsPage } from '../pages/CharacterCollectionsPage';
 import { ReferencePage } from '../pages/ReferencePage';
+import { WizardVaultPage } from '../pages/WizardVaultPage';
+import { MaterialsPage } from '../pages/MaterialsPage';
 import { ErrorBoundary } from '../shared/ui/ErrorBoundary';
 
 export function AppRoutes() {
@@ -26,10 +27,11 @@ export function AppRoutes() {
           <Route path="/collections/:name" element={<CharacterCollectionsPage />} />
           <Route path="/build/:name" element={<BuildPage />} />
           <Route path="/inventory/:name" element={<InventoryPage />} />
-          <Route path="/bank/:name" element={<BankPage />} />
           <Route path="/recommendations" element={<RecommendationsPage />} />
           <Route path="/trading-post" element={<TradingPostPage />} />
           <Route path="/reference" element={<ReferencePage />} />
+          <Route path="/wizards-vault" element={<WizardVaultPage />} />
+          <Route path="/materials/:name" element={<MaterialsPage />} />
         </Routes>
       </ErrorBoundary>
     </BrowserRouter>

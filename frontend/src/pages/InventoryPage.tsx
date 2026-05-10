@@ -18,7 +18,7 @@ import { deepseekClient } from '../shared/api/deepseekClient';
 import type { ItemDetails } from '../entities/item/model/types';
 
 const TABS = [
-  { id: 'inventory', label: 'Инвентарь' },
+  { id: 'inventory', label: 'Сумки' },
   { id: 'bank', label: 'Банк' },
 ];
 
@@ -251,7 +251,7 @@ export function InventoryPage() {
             </span>
           </h1>
           <p className="text-text-secondary text-sm mt-1">
-            {activeTab === 'inventory' ? 'Инвентарь персонажа' : 'Общий банк'}
+            {activeTab === 'inventory' ? 'Сумки персонажа' : 'Общий банк'}
           </p>
         </div>
         <AnalyzeButton
