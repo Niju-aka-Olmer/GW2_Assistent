@@ -60,14 +60,26 @@ function parseMarkdown(text: string): React.ReactNode[] {
 
 function renderInline(text: string): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
+
+  let cleaned = text
+    .replace(/!\[`([^`]*)`\]\(`([^`]*)`\)/g, '![$1]($2)')
+    .replace(/\[`([^`]*)`\]\(`([^`]*)`\)/g, '[$1]($2)')
+    .replace(/! `(https?:\/\/[^`]+)`\s+`(https?:\/\/[^`]+)`\s*(.*)/g, (_: string, icon: string, wiki: string, tail: string) => {
+      const name = wiki.split('/').pop()?.replace(/_/g, ' ') || 'item';
+      return `![${name}](${icon}) [${name}](${wiki}) ${tail}`;
+    })
+    .replace(/! `(https?:\/\/[^`]+)`\s+\[([^\]]+)\]\((https?:\/\/wiki\.guildwars2\.com\/wiki\/[^)]+)\)/g, (_: string, icon: string, name: string, wiki: string) => {
+      return `![${name}](${icon}) [${name}](${wiki})`;
+    });
+
   const regex = /(!\[([^\]]*)\]\(([^)]+)\))|(\*\*(.+?)\*\*)|(\*(.+?)\*)|\[(.+?)\]\((.+?)\)/g;
   let lastIndex = 0;
   let key = 0;
 
   let match: RegExpExecArray | null;
-  while ((match = regex.exec(text)) !== null) {
+  while ((match = regex.exec(cleaned)) !== null) {
     if (match.index > lastIndex) {
-      parts.push(text.slice(lastIndex, match.index));
+      parts.push(cleaned.slice(lastIndex, match.index));
     }
 
     if (match[1]) {
@@ -92,8 +104,8 @@ function renderInline(text: string): React.ReactNode[] {
     lastIndex = match.index + match[0].length;
   }
 
-  if (lastIndex < text.length) {
-    parts.push(text.slice(lastIndex));
+  if (lastIndex < cleaned.length) {
+    parts.push(cleaned.slice(lastIndex));
   }
 
   return parts;

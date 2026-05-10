@@ -8,12 +8,20 @@ build/
 .venv/
 venv/
 env/
+*.spec
+build_venv/
+build_temp*/
+backend/pyi/
+backend/pyi_user/
+backend/pyinstaller_build/
 
 # Node
 node_modules/
-dist/
 .next/
 *.tsbuildinfo
+
+# Frontend build (committed for portable dist, but generated)
+frontend/dist/
 
 # Environment
 .env
@@ -39,3 +47,10 @@ backend/cache/item_names.json
 # Temporary test files
 test_*.py
 /tmp/
+
+# Portable build artifacts
+*.zip
+askpass.*
+pwd_test*.txt
+scp_log.txt
+123.txt

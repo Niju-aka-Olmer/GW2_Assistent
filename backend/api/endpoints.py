@@ -851,16 +851,53 @@ async def deepseek_analyze_inventory(
 
     if target == "bank":
         bank_data = await get_bank(api_key)
+        bank_item_ids = [slot["id"] for slot in bank_data if slot and slot.get("id")]
+        bank_items_info = {}
+        if bank_item_ids:
+            items_raw = await get_item_details(list(set(bank_item_ids)))
+            for item in items_raw:
+                bank_items_info[item["id"]] = _sanitize_item(item)
+
         prompt = "[АНАЛИЗ БАНКА]\n\nСодержимое банка:\n"
         bank_has_items = False
         for slot in bank_data:
             if slot and slot.get("id"):
                 bank_has_items = True
-                item_name = slot.get("name", f"ID:{slot['id']}")
+                item_info = bank_items_info.get(slot["id"], {})
+                item_name = item_info.get("name", slot.get("name", f"ID:{slot['id']}"))
                 item_count = slot.get("count", 1)
-                item_rarity = slot.get("rarity", "N/A")
-                item_level = slot.get("level", 0)
-                prompt += f"  - {item_name} (x{item_count}, редкость: {item_rarity}, уровень: {item_level})\n"
+                item_rarity = item_info.get("rarity", slot.get("rarity", "N/A"))
+                item_level = item_info.get("level", slot.get("level", 0))
+                binding = slot.get("binding", "")
+                vendor_value = item_info.get("vendor_value", 0)
+                flags = item_info.get("flags", [])
+                item_type = item_info.get("item_type", "")
+                is_bound = ("AccountBound" in str(flags) or "SoulbindOnAcquire" in str(flags)
+                            or binding in ("Account", "character"))
+                prefix = ""
+                if is_bound:
+                    prefix = "[НЕЛЬЗЯ ПРОДАТЬ] "
+                if binding:
+                    prefix += f"({binding}) "
+                attrs_str = ""
+                if is_bound:
+                    attrs_str = " ПРИВЯЗАН"
+                if vendor_value:
+                    attrs_str += f", вендор: {vendor_value}м."
+                icon = item_info.get("icon", slot.get("icon", ""))
+                wiki_url = f"https://wiki.guildwars2.com/wiki/{item_name.replace(' ', '_')}"
+                if icon:
+                    prompt += (
+                        f"  - {prefix}![{item_name}]({icon}) [{item_name}]({wiki_url}) "
+                        f"x{item_count}, {item_rarity}, ур.{item_level}, "
+                        f"тип:{item_type}{attrs_str}\n"
+                    )
+                else:
+                    prompt += (
+                        f"  - {prefix}[{item_name}]({wiki_url}) "
+                        f"x{item_count}, {item_rarity}, ур.{item_level}, "
+                        f"тип:{item_type}{attrs_str}\n"
+                    )
         if not bank_has_items:
             prompt += "  Банк пуст.\n"
         prompt += f"\n\n---\n\n{INVENTORY_INSTRUCTIONS}"
