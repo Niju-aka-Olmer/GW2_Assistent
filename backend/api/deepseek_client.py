@@ -2,10 +2,51 @@ import httpx
 from typing import Optional
 from utils.errors import DeepSeekAPIError
 from utils.config import config
+import re
 
 DEEPSEEK_API_BASE = "https://api.deepseek.com"
 DEEPSEEK_MODEL = "deepseek-chat"
 REQUEST_TIMEOUT = 120.0
+
+
+def _clean_ai_markdown(text: str) -> str:
+    """Fix AI markdown mistakes: backtick-wrapped URLs, broken image syntax."""
+
+    # Phase 1: strip backticks from inside markdown syntax
+    # ![`text`](`url`) → ![text](url)
+    text = re.sub(r'!\[`([^`]*)`\]\(`([^`]*)`\)', r'![\1](\2)', text)
+    # [`text`](`url`) → [text](url)
+    text = re.sub(r'\[`([^`]*)`\]\(`([^`]*)`\)', r'[\1](\2)', text)
+
+    # Phase 2: fix per-line broken images of form: ! `icon_url` ...rest...
+    def _fix_line(line: str) -> str:
+        m = re.match(r'! `(https?://[^`]+)`\s+(.*)', line)
+        if not m:
+            return line
+        icon = m.group(1)
+        rest = m.group(2)
+
+        # Try: `wiki_url` tail
+        wm = re.match(r'`(https?://wiki\.guildwars2\.com/wiki/([^`]+))`\s*(.*)', rest)
+        if wm:
+            wiki_url = wm.group(1)
+            name = wm.group(2).replace('_', ' ')
+            tail = wm.group(3)
+            return f'![{name}]({icon}) [{name}]({wiki_url}) {tail}'
+
+        # Try: [Name](wiki_url) tail (standard markdown)
+        wm = re.match(r'\[([^\]]+)\]\((https?://wiki\.guildwars2\.com/wiki/[^)]+)\)\s*(.*)', rest)
+        if wm:
+            name = wm.group(1)
+            wiki_url = wm.group(2)
+            tail = wm.group(3)
+            return f'![{name}]({icon}) [{name}]({wiki_url}) {tail}'
+
+        # Fallback: keep icon + rest intact
+        return f'![item]({icon}) {rest}'
+
+    lines = [_fix_line(line) for line in text.split('\n')]
+    return '\n'.join(lines)
 
 
 async def analyze(
@@ -54,7 +95,8 @@ async def analyze(
             )
             response.raise_for_status()
             data = response.json()
-            return data["choices"][0]["message"]["content"]
+            result = data["choices"][0]["message"]["content"]
+            return _clean_ai_markdown(result)
 
         except httpx.HTTPStatusError as e:
             status = e.response.status_code
