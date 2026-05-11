@@ -151,13 +151,52 @@ API: `/v2/account/legendaryarmory` + `/v2/legendaryarmory`
 
 
 ## Этап 4: Dungeon / Daily Crafting трекер
-**Статус: ⏳ В ОЧЕРЕДИ**
+**Статус: ✅ ГОТОВО (v1.15)**
 
 API: `/v2/account/dungeons` + `/v2/account/dailycrafting`
 
-### Что сделать:
-- [ ] Backend: `get_dungeons(api_key)` + `get_dailycrafting(api_key)`
-- [ ] Frontend: чеклист данжей + ежедневный крафт
+### Что сделано:
+
+**Backend (Python):**
+- [x] `gw2_client.py` — функции:
+  - `get_dungeons()` — список всех подземелий с путями
+  - `get_account_dungeons(api_key)` — пройденные пути за неделю
+  - `get_dailycrafting()` — все виды ежедневного крафта
+  - `get_account_dailycrafting(api_key)` — сделанный ежедневный крафт
+- [x] `endpoints.py` — эндпоинты:
+  - `GET /api/account/dungeons` — обогащение: имена (RU), иконки, статус прохождения путей, прогресс (completed_count/total_count)
+  - `GET /api/account/dailycrafting` — обогащение: имена (RU), статус выполнения
+- [x] Словари `DUNGEON_NAMES`, `DUNGEON_PATH_NAMES`, `DUNGEON_ICONS` — русские названия и иконки для всех 8 подземелий и их путей
+- [x] Словари `DAILYCRAFTING_NAMES`, `DAILYCRAFTING_ICONS` — русские названия для всех 5 предметов крафта
+
+**Frontend (React/TypeScript):**
+- [x] `gw2Client.ts` — методы `getDungeons()`, `getDailyCrafting()` + типы `DungeonPath`, `Dungeon`, `DungeonsResponse`, `DailyCraftingItem`, `DailyCraftingResponse`
+- [x] Создана страница `DungeonsPage.tsx`:
+  - Список всех 8 подземелий с иконками и прогресс-барами
+  - Каждый путь с чекбоксом (зелёный — пройден, серый — не пройден)
+  - Прогресс прохождения: `completed_count/total_count`
+  - Секция "Ежедневный крафт" — 5 предметов с отметками выполнения
+  - Поиск/фильтр по названию данжа или пути
+  - Типы путей: Story / Explorable (с пометкой "Сюжет")
+  - Кеширование через React Query (60s)
+  - Загрузчик Skeleton
+- [x] Роут `/dungeons/:name` в `routes.tsx`
+- [x] Вкладка "Данжи" в `CharacterTabs.tsx`
+
+**Исправления:**
+- [x] Исправлен `restart.sh` на сервере — теперь корректно убивает `uvicorn main:app` вместо `python main.py`
+
+**Сборка и деплой:**
+- [x] Пересобран фронтенд (npm run build) — ошибок нет
+- [x] Скопированы файлы на сервер:
+  - `frontend/dist/*` — статика
+  - `frontend/src/pages/DungeonsPage.tsx`
+  - `frontend/src/shared/api/gw2Client.ts`
+  - `frontend/src/app/routes.tsx`
+  - `frontend/src/widgets/CharacterTabs/ui/CharacterTabs.tsx`
+  - `backend/api/gw2_client.py`
+  - `backend/api/endpoints.py`
+- [x] Сервер перезапущен — эндпоинты отвечают 200
 
 
 ## Этап 5: World Boss трекер

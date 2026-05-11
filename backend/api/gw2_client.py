@@ -53,6 +53,31 @@ async def _get(
             raise GW2APIError(detail=str(e))
 
 
+async def get_legendary_armory(api_key: str) -> list[dict]:
+    """Fetch account legendary armory items (id + count)."""
+    return await _get("account/legendaryarmory", api_key=api_key)
+
+
+async def get_dungeons() -> list[dict]:
+    """Fetch all dungeons with their paths."""
+    return await _get("dungeons?ids=all")
+
+
+async def get_account_dungeons(api_key: str) -> list[str]:
+    """Fetch completed dungeon paths for the account (weekly reset)."""
+    return await _get("account/dungeons", api_key=api_key)
+
+
+async def get_dailycrafting() -> list[str]:
+    """Fetch all daily crafting item types."""
+    return await _get("dailycrafting")
+
+
+async def get_account_dailycrafting(api_key: str) -> list[str]:
+    """Fetch completed daily crafting for the account (daily reset)."""
+    return await _get("account/dailycrafting", api_key=api_key)
+
+
 async def get_account(api_key: str) -> dict:
     cache_key = f"account:{api_key}"
     cached = character_cache.get(cache_key)
@@ -92,7 +117,7 @@ async def get_account_raids(api_key: str) -> list[dict]:
 
 
 async def get_masteries() -> list[dict]:
-    return await _get("masteries", params={"lang": "ru"})
+    return await _get("masteries?ids=all", params={"lang": "ru"})
 
 
 async def get_account_masteries(api_key: str) -> list[dict]:
@@ -252,6 +277,18 @@ async def get_character_inventory(api_key: str, name: str) -> list:
         return cached
 
     data = await _get(f"characters/{quote(name)}/inventory", api_key=api_key)
+    character_cache.set(cache_key, data)
+    return data
+
+
+async def get_character_crafting(api_key: str, name: str) -> list:
+    from urllib.parse import quote
+    cache_key = f"character_crafting:{api_key}:{name}"
+    cached = character_cache.get(cache_key)
+    if cached:
+        return cached
+
+    data = await _get(f"characters/{quote(name)}/crafting", api_key=api_key)
     character_cache.set(cache_key, data)
     return data
 
@@ -534,6 +571,16 @@ def _do_search(query: str, page: int, page_size: int) -> dict:
         "page_size": page_size,
         "has_more": end < total,
     }
+
+
+async def get_worldbosses() -> list[dict]:
+    """Fetch all world bosses with details."""
+    return await _get("worldbosses?ids=all")
+
+
+async def get_account_worldbosses(api_key: str) -> list[str]:
+    """Fetch defeated world boss IDs for the account (weekly reset)."""
+    return await _get("account/worldbosses", api_key=api_key)
 
 
 async def get_all_item_ids() -> list[int]:

@@ -6,7 +6,7 @@ import { CharacterTabs } from '../widgets/CharacterTabs';
 import { CoinBadge } from '../widgets/PriceBadge/ui/PriceBadge';
 import { useCharacterFull } from '../entities/character/api/getCharacters';
 import { RUS_ATTRIBUTES } from '../widgets/ItemTooltip/lib/rusAttributes';
-import type { FullSkill } from '../entities/character/model/types';
+import type { FullSkill, AttributeBreakdown as AttrBreak } from '../entities/character/model/types';
 
 const RACE_RU: Record<string, string> = {
   Asura: 'Асура',
@@ -190,12 +190,10 @@ export function CharacterPage() {
     );
   }
 
-  const attrEntries = Object.entries(data.combined_stats || {})
-    .filter(([, v]) => v > 0)
-    .sort(([a], [b]) => {
-      const order = ['Power', 'Precision', 'Toughness', 'Vitality', 'Ferocity', 'ConditionDamage', 'Expertise', 'Concentration', 'HealingPower', 'Healing', 'ConditionDuration', 'BoonDuration', 'AgonyResistance', 'Armor', 'Health', 'CritDamage'];
-      return order.indexOf(a) - order.indexOf(b);
-    });
+  const attrOrder = ['Power', 'Precision', 'Toughness', 'Vitality', 'Ferocity', 'ConditionDamage', 'Expertise', 'Concentration', 'HealingPower', 'Healing', 'ConditionDuration', 'BoonDuration', 'AgonyResistance', 'Armor', 'Health', 'CritDamage'];
+
+  const breakdownEntries = Object.entries(data.attribute_breakdown || {})
+    .sort(([a], [b]) => attrOrder.indexOf(a) - attrOrder.indexOf(b));
 
   return (
     <Layout>
@@ -246,16 +244,50 @@ export function CharacterPage() {
         <WalletSection wallet={data.wallet} />
       )}
 
-      {attrEntries.length > 0 && (
+      {breakdownEntries.length > 0 && (
         <Card className="mb-6">
           <h3 className="text-sm font-semibold text-[#c9a84c] uppercase tracking-wider mb-3">Характеристики</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-            {attrEntries.map(([key, value]) => (
-              <div key={key} className="flex items-center justify-between px-3 py-2 bg-bg-secondary rounded-lg border border-border-primary">
-                <span className="text-xs text-text-secondary">{RUS_ATTRIBUTES[key] || key}</span>
-                <span className="text-sm font-medium text-indigo-300">{value}</span>
-              </div>
-            ))}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {breakdownEntries.map(([key, attr]) => {
+              const bd = attr as AttrBreak;
+              if (bd.total <= 0 && bd.sources.length === 0) return null;
+              return (
+                <div key={key} className="bg-bg-secondary rounded-lg border border-border-primary p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-text-primary">
+                      {RUS_ATTRIBUTES[key] || key}
+                    </span>
+                    {bd.total > 0 && (
+                      <span className="text-sm font-bold text-indigo-300">{bd.total.toLocaleString('ru-RU')}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-text-tertiary mb-2 border-b border-border-primary pb-1">
+                    <span>База: <span className="text-text-secondary font-medium">{bd.base.toLocaleString('ru-RU')}</span></span>
+                    {bd.bonus > 0 && (
+                      <span>+<span className="text-indigo-400 font-medium">{bd.bonus.toLocaleString('ru-RU')}</span></span>
+                    )}
+                  </div>
+                  {bd.sources.length > 0 && (
+                    <div className="space-y-1 max-h-[160px] overflow-y-auto scrollbar-thin">
+                      {bd.sources.map((src, i) => (
+                        <div key={i} className="flex items-center gap-2 py-0.5">
+                          <img
+                            src={src.icon}
+                            alt={src.name}
+                            className="w-5 h-5 rounded flex-shrink-0 bg-bg-tertiary"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                          <span className="text-xs text-text-secondary truncate flex-1">{src.name}</span>
+                          <span className="text-xs text-indigo-400 font-medium flex-shrink-0">+{src.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </Card>
       )}

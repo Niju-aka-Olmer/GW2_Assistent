@@ -3,6 +3,7 @@ import { CharacterSelectPage } from '../pages/CharacterSelectPage';
 import { CharacterPage } from '../pages/CharacterPage';
 import { BuildPage } from '../pages/BuildPage';
 import { InventoryPage } from '../pages/InventoryPage';
+import { LegendaryArmoryPage } from '../pages/LegendaryArmoryPage';
 import { RecommendationsPage } from '../pages/RecommendationsPage';
 import { TradingPostPage } from '../pages/TradingPostPage';
 import { CharacterAchievementsPage } from '../pages/CharacterAchievementsPage';
@@ -12,6 +13,9 @@ import { CharacterCollectionsPage } from '../pages/CharacterCollectionsPage';
 import { ReferencePage } from '../pages/ReferencePage';
 import { WizardVaultPage } from '../pages/WizardVaultPage';
 import { MaterialsPage } from '../pages/MaterialsPage';
+import { DungeonsPage } from '../pages/DungeonsPage';
+import { WorldBossesPage } from '../pages/WorldBossesPage';
+import { AccountValuePage } from '../pages/AccountValuePage';
 import { ErrorBoundary } from '../shared/ui/ErrorBoundary';
 
 export function AppRoutes() {
@@ -32,6 +36,10 @@ export function AppRoutes() {
           <Route path="/reference" element={<ReferencePage />} />
           <Route path="/wizards-vault" element={<WizardVaultPage />} />
           <Route path="/materials/:name" element={<MaterialsPage />} />
+          <Route path="/legendary-armory/:name" element={<LegendaryArmoryPage />} />
+          <Route path="/dungeons/:name" element={<DungeonsPage />} />
+          <Route path="/world-bosses/:name" element={<WorldBossesPage />} />
+          <Route path="/account-value/:name" element={<AccountValuePage />} />
         </Routes>
       </ErrorBoundary>
     </BrowserRouter>

@@ -84,6 +84,85 @@ interface CacheClearResponse {
   message: string;
 }
 
+interface LegendaryArmoryItem {
+  id: number;
+  name: string;
+  icon: string;
+  rarity: string;
+  level: number;
+  type: string;
+  subtype: string;
+  count: number;
+  flags: string[];
+}
+
+interface LegendaryArmoryResponse {
+  items: LegendaryArmoryItem[];
+}
+
+interface DungeonPath {
+  id: string;
+  name: string;
+  type: string;
+  completed: boolean;
+}
+
+interface Dungeon {
+  id: string;
+  name: string;
+  icon: string;
+  paths: DungeonPath[];
+  completed_count: number;
+  total_count: number;
+}
+
+interface DungeonsResponse {
+  dungeons: Dungeon[];
+}
+
+interface DailyCraftingItem {
+  id: string;
+  name: string;
+  completed: boolean;
+}
+
+interface DailyCraftingResponse {
+  items: DailyCraftingItem[];
+}
+
+interface WorldBoss {
+  id: string;
+  name: string;
+  icon: string;
+  map: string;
+  defeated: boolean;
+}
+
+interface WorldBossesResponse {
+  bosses: WorldBoss[];
+}
+
+interface AccountValueItem {
+  id: number;
+  count: number;
+  unit_price: number;
+  total: number;
+}
+
+interface AccountValueCategory {
+  total_coins: number;
+  total_gold: number;
+  items: AccountValueItem[];
+}
+
+interface AccountValueResponse {
+  total_value_coins: number;
+  total_value_gold: number;
+  wallet: { coins: number; gold: number };
+  materials: AccountValueCategory;
+  bank: AccountValueCategory;
+}
+
 export const gw2Client = {
   auth: async () => {
     const { data } = await apiClient.post<AuthResponse>('/auth');
@@ -122,6 +201,11 @@ export const gw2Client = {
 
   getMaterials: async () => {
     const { data } = await apiClient.get<MaterialsResponse>('/account/materials');
+    return data;
+  },
+
+  getLegendaryArmory: async () => {
+    const { data } = await apiClient.get<LegendaryArmoryResponse>('/account/legendary-armory');
     return data;
   },
 
@@ -254,6 +338,26 @@ export const gw2Client = {
 
   getWizardsVaultListings: async () => {
     const { data } = await apiClient.get('/wizardsvault/listings');
+    return data;
+  },
+
+  getDungeons: async () => {
+    const { data } = await apiClient.get<DungeonsResponse>('/account/dungeons');
+    return data;
+  },
+
+  getDailyCrafting: async () => {
+    const { data } = await apiClient.get<DailyCraftingResponse>('/account/dailycrafting');
+    return data;
+  },
+
+  getWorldBosses: async () => {
+    const { data } = await apiClient.get<WorldBossesResponse>('/account/world-bosses');
+    return data;
+  },
+
+  getAccountValue: async () => {
+    const { data } = await apiClient.get<AccountValueResponse>('/account/value');
     return data;
   },
 };

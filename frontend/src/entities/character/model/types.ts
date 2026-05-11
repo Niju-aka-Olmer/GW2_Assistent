@@ -26,6 +26,21 @@ export interface CharacterListResponse {
   characters: CharacterSummary[];
 }
 
+export interface AttributeSource {
+  id: number;
+  name: string;
+  icon: string;
+  slot: string;
+  value: number;
+}
+
+export interface AttributeBreakdown {
+  base: number;
+  bonus: number;
+  total: number;
+  sources: AttributeSource[];
+}
+
 export interface CharacterFullResponse {
   name: string;
   race: string;
@@ -42,6 +57,7 @@ export interface CharacterFullResponse {
   equipment: FullEquipmentItem[];
   crafting: CraftingDiscipline[];
   combined_stats: Record<string, number>;
+  attribute_breakdown: Record<string, AttributeBreakdown>;
 }
 
 export interface FullSpecialization {

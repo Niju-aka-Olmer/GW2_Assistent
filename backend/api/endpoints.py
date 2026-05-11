@@ -15,6 +15,7 @@ from api.gw2_client import (
     get_character_build_tab,
     get_character_equipment,
     get_character_inventory,
+    get_character_crafting,
     get_character_render,
     get_bank,
     get_item_details,
@@ -63,6 +64,13 @@ from api.gw2_client import (
     get_wizardsvault_season,
     get_wizardsvault_all_objectives,
     get_wizardsvault_all_listings,
+    get_legendary_armory,
+    get_dungeons,
+    get_account_dungeons,
+    get_dailycrafting,
+    get_account_dailycrafting,
+    get_worldbosses,
+    get_account_worldbosses,
 )
 from api.deepseek_client import analyze as deepseek_analyze
 from services.build_analyzer import analyze_build_text, fetch_metabattle_build, get_metabattle_build_name
@@ -539,24 +547,120 @@ async def character_full(
         for item in items_raw:
             equipment_details[item["id"]] = _sanitize_item(item)
 
-    # Calculate combined stats from equipment (flatting GW2 format)
+    # Base stats for level 80 characters (same for all professions)
+    BASE_CHAR_STATS = {
+        "Power": 1000,
+        "Precision": 1000,
+        "Toughness": 1000,
+        "Vitality": 1000,
+        "Ferocity": 0,
+        "ConditionDamage": 0,
+        "Expertise": 0,
+        "Concentration": 0,
+        "HealingPower": 0,
+        "AgonyResistance": 0,
+    }
+
+    PROFESSION_BASE_HEALTH = {
+        "Guardian": 2125, "Warrior": 1920, "Revenant": 2250,
+        "Engineer": 1646, "Ranger": 1735, "Thief": 1145,
+        "Elementalist": 1165, "Mesmer": 1285, "Necromancer": 1944,
+    }
+
+    # Combined stats with per-item source tracking
     combined_stats = {}
+    attribute_sources: dict[str, list[dict]] = {}
     for eq in equipment_data.get("equipment", []):
+        item_info = equipment_details.get(eq["id"], {})
         raw_stats = eq.get("stats") or {}
         attrs_raw = raw_stats.get("attributes") if isinstance(raw_stats, dict) else None
         if attrs_raw and isinstance(attrs_raw, dict):
             for attr_name, value in attrs_raw.items():
                 if isinstance(value, (int, float)):
                     combined_stats[attr_name] = combined_stats.get(attr_name, 0) + value
+                    if attr_name not in attribute_sources:
+                        attribute_sources[attr_name] = []
+                    attribute_sources[attr_name].append({
+                        "id": eq["id"],
+                        "name": item_info.get("name", f"Item {eq['id']}"),
+                        "icon": item_info.get("icon", ""),
+                        "slot": eq.get("slot", ""),
+                        "value": value,
+                    })
         elif attrs_raw and isinstance(attrs_raw, list):
             for a in attrs_raw:
                 if isinstance(a, dict) and "attribute" in a and "modifier" in a:
                     attr_name = a["attribute"]
                     combined_stats[attr_name] = combined_stats.get(attr_name, 0) + a["modifier"]
+                    if attr_name not in attribute_sources:
+                        attribute_sources[attr_name] = []
+                    attribute_sources[attr_name].append({
+                        "id": eq["id"],
+                        "name": item_info.get("name", f"Item {eq['id']}"),
+                        "icon": item_info.get("icon", ""),
+                        "slot": eq.get("slot", ""),
+                        "value": a["modifier"],
+                    })
         elif isinstance(raw_stats, dict):
+            found_any = False
             for k, v in raw_stats.items():
                 if k != "id" and isinstance(v, (int, float)):
+                    found_any = True
                     combined_stats[k] = combined_stats.get(k, 0) + v
+                    if k not in attribute_sources:
+                        attribute_sources[k] = []
+                    attribute_sources[k].append({
+                        "id": eq["id"],
+                        "name": item_info.get("name", f"Item {eq['id']}"),
+                        "icon": item_info.get("icon", ""),
+                        "slot": eq.get("slot", ""),
+                        "value": v,
+                    })
+            if not found_any:
+                item_attrs = item_info.get("attributes", {})
+                if isinstance(item_attrs, dict):
+                    for attr_name, value in item_attrs.items():
+                        if isinstance(value, (int, float)):
+                            combined_stats[attr_name] = combined_stats.get(attr_name, 0) + value
+                            if attr_name not in attribute_sources:
+                                attribute_sources[attr_name] = []
+                            attribute_sources[attr_name].append({
+                                "id": eq["id"],
+                                "name": item_info.get("name", f"Item {eq['id']}"),
+                                "icon": item_info.get("icon", ""),
+                                "slot": eq.get("slot", ""),
+                                "value": value,
+                            })
+
+    # Build per-attribute breakdown
+    profession = core.get("profession", "Guardian")
+    base_health = PROFESSION_BASE_HEALTH.get(profession, 2125)
+    base_vitality = BASE_CHAR_STATS.get("Vitality", 1000)
+    base_toughness = BASE_CHAR_STATS.get("Toughness", 1000)
+
+    attribute_breakdown: dict[str, dict] = {}
+    all_attr_names = set(BASE_CHAR_STATS.keys()) | set(combined_stats.keys())
+    for attr_name in all_attr_names:
+        base = BASE_CHAR_STATS.get(attr_name, 0)
+        if attr_name == "Health":
+            bonus = combined_stats.get("Health", 0)
+            base = base_health + base_vitality * 10
+            total = base + bonus
+        elif attr_name == "Armor":
+            bonus = combined_stats.get("Armor", 0)
+            base = base_toughness  # base defense from weight class is only on gear
+            total = base + bonus
+        else:
+            bonus = combined_stats.get(attr_name, 0)
+            total = base + bonus
+
+        sources = sorted(attribute_sources.get(attr_name, []), key=lambda s: s.get("slot", ""))
+        attribute_breakdown[attr_name] = {
+            "base": base,
+            "bonus": bonus,
+            "total": total,
+            "sources": sources,
+        }
 
     equipment = []
     for eq in equipment_data.get("equipment", []):
@@ -580,8 +684,9 @@ async def character_full(
             } if any(item_info.get(k) for k in ["item_type", "weight_class", "defense"]) else None,
         })
 
-    # Crafting info
-    crafting = core.get("crafting", [])
+    # Crafting info — fetch from separate endpoint
+    crafting_data = await get_character_crafting(api_key, name)
+    crafting = crafting_data.get("crafting", []) if isinstance(crafting_data, dict) else crafting_data
 
     return {
         "name": core.get("name", name),
@@ -595,6 +700,7 @@ async def character_full(
         "title": core.get("title"),
         "wallet": wallet_enriched,
         "combined_stats": combined_stats,
+        "attribute_breakdown": attribute_breakdown,
         "specializations": specializations,
         "skills": skills,
         "equipment": equipment,
@@ -745,6 +851,414 @@ async def account_materials(authorization: Optional[str] = Header(None)):
 
     enriched.sort(key=lambda x: (x["category_name"], x["name"]))
     return {"materials": enriched}
+
+
+@router.get("/account/legendary-armory")
+async def account_legendary_armory(authorization: Optional[str] = Header(None)):
+    api_key = _get_api_key(authorization)
+    armory_data = await get_legendary_armory(api_key)
+
+    if not armory_data:
+        return {"items": []}
+
+    item_ids = list(set(m["id"] for m in armory_data))
+
+    items_info = {}
+    if item_ids:
+        items_raw = await get_item_details(item_ids)
+        for item in items_raw:
+            items_info[item["id"]] = item
+
+    enriched = []
+    for entry in armory_data:
+        item_id = entry["id"]
+        item_info = items_info.get(item_id, {})
+
+        enriched.append({
+            "id": item_id,
+            "name": item_info.get("name", f"Item {item_id}"),
+            "icon": item_info.get("icon", ""),
+            "rarity": item_info.get("rarity", "Legendary"),
+            "level": item_info.get("level", 0),
+            "type": item_info.get("type", ""),
+            "subtype": item_info.get("details", {}).get("type", ""),
+            "count": entry.get("count", 0),
+            "flags": item_info.get("flags", []),
+        })
+
+    enriched.sort(key=lambda x: (x["type"], x["subtype"], x["name"]))
+    return {"items": enriched}
+
+
+DUNGEON_NAMES: dict[str, str] = {
+    "ascalonian_catacombs": "Катакомбы Аскалона",
+    "caudecus_manor": "Поместье Кодекус",
+    "twilight_arbor": "Сумеречная беседка",
+    "sorrows_embrace": "Объятия скорби",
+    "citadel_of_flame": "Цитадель пламени",
+    "honor_of_the_waves": "Честь волн",
+    "crucible_of_eternity": "Горнило вечности",
+    "ruined_city_of_arah": "Разрушенный город Арах",
+}
+
+DUNGEON_PATH_NAMES: dict[str, str] = {
+    "ac_story": "Сюжет", "hodgins": "Ходжинс", "detha": "Дета", "tzark": "Царк",
+    "cm_story": "Сюжет", "asura": "Асура", "seraph": "Серафим", "butler": "Дворецкий",
+    "ta_story": "Сюжет", "leurent": "Лерент", "vevina": "Вевина", "aetherpath": "Эфирный путь",
+    "se_story": "Сюжет", "fergg": "Фергг", "rasalov": "Расалов", "koptev": "Коптев",
+    "cof_story": "Сюжет", "ferrah": "Ферра", "magg": "Мэгг", "rhiannon": "Рианнон",
+    "hotw_story": "Сюжет", "butcher": "Мясник", "plunderer": "Грабитель", "zealot": "Фанатик",
+    "coe_story": "Сюжет", "submarine": "Субмарина", "teleporter": "Телепорт", "front_door": "Парадный вход",
+    "arah_story": "Сюжет", "jotun": "Йотун", "mursaat": "Мурсаат", "forgotten": "Забытые", "seer": "Провидец",
+}
+
+DUNGEON_ICONS: dict[str, str] = {
+    "ascalonian_catacombs": "https://wiki.guildwars2.com/images/5/5a/Ascalonian_Catacombs_%28dungeon%29.png",
+    "caudecus_manor": "https://wiki.guildwars2.com/images/c/cf/Caudecus_Manor_%28dungeon%29.png",
+    "twilight_arbor": "https://wiki.guildwars2.com/images/2/2f/Twilight_Arbor_%28dungeon%29.png",
+    "sorrows_embrace": "https://wiki.guildwars2.com/images/4/46/Sorrow%27s_Embrace_%28dungeon%29.png",
+    "citadel_of_flame": "https://wiki.guildwars2.com/images/e/e4/Citadel_of_Flame_%28dungeon%29.png",
+    "honor_of_the_waves": "https://wiki.guildwars2.com/images/9/9c/Honor_of_the_Waves_%28dungeon%29.png",
+    "crucible_of_eternity": "https://wiki.guildwars2.com/images/4/46/Crucible_of_Eternity_%28dungeon%29.png",
+    "ruined_city_of_arah": "https://wiki.guildwars2.com/images/1/17/Ruined_City_of_Arah_%28dungeon%29.png",
+}
+
+DAILYCRAFTING_NAMES: dict[str, str] = {
+    "charged_quartz_crystal": "Заряженный кварцевый кристалл",
+    "glob_of_elder_spirit_residue": "Сгусток остатков духов старейшин",
+    "lump_of_mithrilium": "Кусок мифрилиума",
+    "spool_of_silk_weaving_thread": "Катушка шёлковой нити",
+    "spool_of_thick_elonian_cord": "Катушка толстого элонского шнура",
+}
+
+DAILYCRAFTING_ICONS: dict[str, str] = {
+    "charged_quartz_crystal": "https://render.guildwars2.com/file/1A0A0F5E0A0F5E0A0F5E0A0F5E0A0F5E0A0F5E0/000000.png",
+    "glob_of_elder_spirit_residue": "https://render.guildwars2.com/file/1B0B0F5E0A0F5E0A0F5E0A0F5E0A0F5E0A0F5E0/000000.png",
+    "lump_of_mithrilium": "https://render.guildwars2.com/file/1C0C0F5E0A0F5E0A0F5E0A0F5E0A0F5E0A0F5E0/000000.png",
+    "spool_of_silk_weaving_thread": "https://render.guildwars2.com/file/1D0D0F5E0A0F5E0A0F5E0A0F5E0A0F5E0A0F5E0/000000.png",
+    "spool_of_thick_elonian_cord": "https://render.guildwars2.com/file/1E0E0F5E0A0F5E0A0F5E0A0F5E0A0F5E0A0F5E0/000000.png",
+}
+
+MASTERY_NAMES: dict[str, str] = {
+    "1": "Знания экзальтов",
+    "2": "Знания ицелей",
+    "3": "Знания нухоков",
+    "4": "Командующий Союза",
+    "5": "Настройка на фракталы",
+    "6": "Создание легендарных предметов",
+    "8": "Планирование",
+    "12": "Рейды",
+    "13": "Древняя магия",
+    "14": "Ездовой раптор",
+    "16": "Ездовой грифон",
+    "17": "Ездовой прыгун",
+    "18": "Ездовой шакал",
+    "19": "Чемпион кристалла",
+    "20": "Ездовой жук-каток",
+    "21": "Ездовой небочешуй",
+    "22": "Управление эссенцией стойкости",
+    "23": "Настройка ворона",
+    "24": "Управление эссенцией бдительности",
+    "25": "Управление эссенцией доблести",
+    "26": "Синхронизация станции Объединенных легионов",
+    "27": "Убийца драконов",
+    "29": "Управление лодкой",
+    "30": "Ездовой черепах",
+    "31": "Рыбалка",
+    "32": "Восстановление Древокамня",
+    "33": "Нефритовые боты",
+    "36": "Тренировка полёта",
+    "37": "Астральный дозор",
+    "38": "Исследования сердца тайны",
+    "39": "Внутренний Найос",
+    "40": "Обустройство усадьбы",
+    "42": "Коданы низовий",
+    "43": "Ездовой боекоть",
+    "44": "Теневые ремёсла мурсаатов",
+    "45": "Выживальщик Кастора",
+    "46": "Дикая магия Кастора",
+    "47": "Адаптация скакуна",
+}
+
+
+@router.get("/account/dungeons")
+async def account_dungeons(authorization: Optional[str] = Header(None)):
+    api_key = _get_api_key(authorization)
+    all_dungeons = await get_dungeons()
+    completed = await get_account_dungeons(api_key)
+    completed_set = set(completed)
+
+    enriched = []
+    for dungeon in all_dungeons:
+        did = dungeon["id"]
+        paths = []
+        for path in dungeon["paths"]:
+            pid = path["id"]
+            paths.append({
+                "id": pid,
+                "name": DUNGEON_PATH_NAMES.get(pid, pid),
+                "type": path["type"],
+                "completed": pid in completed_set,
+            })
+
+        enriched.append({
+            "id": did,
+            "name": DUNGEON_NAMES.get(did, did),
+            "icon": DUNGEON_ICONS.get(did, ""),
+            "paths": paths,
+            "completed_count": sum(1 for p in paths if p["completed"]),
+            "total_count": len(paths),
+        })
+
+    return {"dungeons": enriched}
+
+
+@router.get("/account/dailycrafting")
+async def account_dailycrafting(authorization: Optional[str] = Header(None)):
+    api_key = _get_api_key(authorization)
+    all_crafting = await get_dailycrafting()
+    completed = await get_account_dailycrafting(api_key)
+    completed_set = set(completed)
+
+    enriched = []
+    for item_id in all_crafting:
+        enriched.append({
+            "id": item_id,
+            "name": DAILYCRAFTING_NAMES.get(item_id, item_id),
+            "completed": item_id in completed_set,
+        })
+
+    return {"items": enriched}
+
+
+WORLD_BOSS_NAMES: dict[str, str] = {
+    "amalgamate": "Амальгама",
+    "ancient_dragon_root": "Древний драконий корень",
+    "anomaly": "Аномалия",
+    "archdiviner": "Архипрорицатель",
+    "shatterer": "Крушитель",
+    "shadow_behemoth": "Теневой бегемот",
+    "taidha_covington": "Тайда Ковингтон",
+    "tequatl_the_sunless": "Текватл Бессолнечный",
+    "the_bishop": "Епископ",
+    "the_blazing_king": "Пылающий король",
+    "the_breaker": "Разрушитель",
+    "the_demigod_kodan": "Полубог-кодам",
+    "the_dragon_of_north_rend": "Дракон Северной расщелины",
+    "the_dragonspawn": "Драконород",
+    "the_eye_of_balthazar": "Око Бальтазара",
+    "the_frozen_depths_finfish": "Глубинный плавник",
+    "the_giant_wurm": "Гигантский червь",
+    "the_great_boar": "Великий вепрь",
+    "the_great_jungle_wurm": "Великий джунглевый червь",
+    "the_hex": "Гекс",
+    "the_ice_maw": "Ледяная пасть",
+    "the_mauler": "Молотильщик",
+    "the_megadestroyer": "Мегаразрушитель",
+    "the_mossman": "Мшистик",
+    "the_shatterer": "Крушитель",
+    "the_shattered_rift_raider": "Разломный рейдер",
+    "the_sloth": "Ленивец",
+    "the_spider_queen": "Королева пауков",
+    "the_taker_of_souls": "Забирающий души",
+    "the_unstable_cosmic_abomination": "Нестабильное космическое мерзость",
+    "triple_trouble_wurms": "Тройные черви",
+    "svanir_chieftain": "Сванирский вождь",
+    "ulgo_the_consuming": "Ульго Пожирающий",
+    "valley_spider_queen": "Долинная королева пауков",
+    "wicked_warbeast": "Злобный зверь",
+    "xunlai_mercenary": "Наёмник Сюньлай",
+    "golem_mk2": "Голем МК2",
+    "mark_ii_golem": "Голем Марк II",
+    "molten_armageddon": "Расплавленный армагеддон",
+    "molten_boss": "Расплавленный босс",
+    "bloody_prince": "Кровавый принц",
+    "commander_bria": "Командир Брия",
+    "craft_apprentice": "Ученик ремесленника",
+    "corpse_eater": "Плотоед",
+    "executor_hadz": "Экзекутор Хадз",
+    "fashion_scarlet": "Модница Скарлетт",
+    "gunpowder_rouge": "Пороховой разбойник",
+    "hologram_rouge": "Голограммный разбойник",
+    "mad_king_thorn": "Безумный король Торн",
+    "might_maker": "Создатель силы",
+    "polar_bear_boss": "Полярный медведь",
+    "queen_beetle": "Королева жуков",
+    "the_skelk_boss": "Скельк-босс",
+    "tribulation_daughter": "Дочь испытаний",
+    "tribulation_son": "Сын испытаний",
+    "veteran_creature": "Ветеран-создание",
+    "veteran_wyvern": "Ветеран-виверна",
+    "corrupted_leader": "Осквернённый лидер",
+    "dark_wurm": "Тёмный червь",
+    "destroyer_golem": "Голем-разрушитель",
+    "digital_shield_operator": "Оператор цифрового щита",
+    "fire_elemental": "Огненный элементаль",
+    "forged_fire_effigy": "Кованый огненный идол",
+    "gate_crasher": "Крушитель врат",
+    "giant_shaman": "Гигантский шаман",
+    "harpy_queen": "Королева гарпий",
+    "hero_tribune_burnisher": "Трибун-герой Бёрнишер",
+    "inquest_crasher": "Крушитель Инквест",
+    "karka_queen": "Королева карка",
+    "lord_of_the_fractals": "Владыка фракталов",
+    "power_supply_operative": "Оператор энергоснабжения",
+    "modnir_ul_maker": "Создатель Моднир Уль",
+    "priest_of_balthazar": "Жрец Бальтазара",
+    "priest_of_dwayna": "Жрец Дуэйны",
+    "priest_of_grenth": "Жрец Грента",
+    "priest_of_kormir": "Жрец Кормир",
+    "priest_of_lyssa": "Жрец Лиссы",
+    "priest_of_melandru": "Жрец Меландру",
+    "toxic_ninja": "Токсичный ниндзя",
+    "toxic_necromancer": "Токсичный некромант",
+    "treasure_carrier": "Носитель сокровищ",
+    "veteran_abomination": "Ветеран-мерзость",
+    "veteran_elder_dragon": "Ветеран-старший дракон",
+}
+
+WORLD_BOSS_ICONS: dict[str, str] = {
+    "shadow_behemoth": "https://wiki.guildwars2.com/images/6/6f/Shadow_Behemoth.png",
+    "tequatl_the_sunless": "https://wiki.guildwars2.com/images/7/78/Tequatl_the_Sunless_%28boss%29.png",
+    "great_jungle_wurm": "https://wiki.guildwars2.com/images/c/ca/Great_Jungle_Wurm.png",
+    "the_shatterer": "https://wiki.guildwars2.com/images/8/8a/The_Shatterer.png",
+    "claw_of_jormag": "https://wiki.guildwars2.com/images/0/08/Claw_of_Jormag_%28NPC%29.png",
+    "ancient_dragon_root": "https://wiki.guildwars2.com/images/b/b7/Ancient_Dragon_Root.png",
+    "fire_elemental": "https://wiki.guildwars2.com/images/0/09/Fire_Elemental.png",
+    "karka_queen": "https://wiki.guildwars2.com/images/a/a9/Karka_Queen.png",
+    "ulgo_the_consuming": "https://wiki.guildwars2.com/images/6/6e/Ulgo_the_Consuming.png",
+    "modnir_ul_maker": "https://wiki.guildwars2.com/images/9/9b/Modniir_Ulgar.png",
+    "triple_trouble_wurms": "https://wiki.guildwars2.com/images/5/57/Triple_Trouble_Wyverns.png",
+    "taidha_covington": "https://wiki.guildwars2.com/images/1/18/Taidha_Covington.png",
+    "the_megadestroyer": "https://wiki.guildwars2.com/images/5/5e/Megadestroyer.png",
+    "wicked_warbeast": "https://wiki.guildwars2.com/images/8/82/Wicked_Warbeast.png",
+}
+
+WORLD_BOSS_MAPS: dict[str, str] = {
+    "shadow_behemoth": "Болото Квайтана",
+    "tequatl_the_sunless": "Устье Спаркфлай",
+    "great_jungle_wurm": "Колыбель Кесси",
+    "the_shatterer": "Пустошь Блазер",
+    "claw_of_jormag": "Фростгордж",
+    "ancient_dragon_root": "Железные утёсы",
+    "fire_elemental": "Метрическая провинция",
+    "karka_queen": "Южный берег",
+    "ulgo_the_consuming": "Пустошь Блазер",
+    "modnir_ul_maker": "Хартианские холмы",
+    "triple_trouble_wurms": "Кровавый берег",
+    "taidha_covington": "Кровавый берег",
+    "the_megadestroyer": "Гора Мелхис",
+    "wicked_warbeast": "Поля Руин",
+    "golem_mk2": "Изрезанные острова",
+    "mark_ii_golem": "Изрезанные острова",
+}
+
+
+@router.get("/account/world-bosses")
+async def account_world_bosses(authorization: Optional[str] = Header(None)):
+    api_key = _get_api_key(authorization)
+    all_bosses = await get_worldbosses()
+    defeated = await get_account_worldbosses(api_key)
+    defeated_set = set(defeated)
+
+    enriched = []
+    for boss in all_bosses:
+        bid = boss["id"]
+        enriched.append({
+            "id": bid,
+            "name": WORLD_BOSS_NAMES.get(bid, bid),
+            "icon": WORLD_BOSS_ICONS.get(bid, ""),
+            "map": WORLD_BOSS_MAPS.get(bid, ""),
+            "defeated": bid in defeated_set,
+        })
+
+    enriched.sort(key=lambda x: (x["defeated"], x["name"]))
+    return {"bosses": enriched}
+
+
+@router.get("/account/value")
+async def account_value(authorization: Optional[str] = Header(None)):
+    api_key = _get_api_key(authorization)
+
+    # 1. Wallet (gold)
+    wallet = await get_account_wallet(api_key)
+    gold_value = 0
+    wallet_breakdown = []
+    for w in wallet:
+        cid = w["id"]
+        if cid == 1:  # Coins (gold)
+            gold_value = w.get("value", 0)
+        val = w.get("value", 0)
+        if val > 0:
+            wallet_breakdown.append({"id": cid, "value": val})
+
+    # 2. Materials value
+    materials = await get_materials(api_key)
+    material_items = [m for m in materials if m.get("count", 0) > 0]
+    material_item_ids = list(set(m["id"] for m in material_items))
+
+    material_prices = {}
+    if material_item_ids:
+        prices_raw = await get_item_prices(material_item_ids)
+        for p in prices_raw:
+            pid = p["id"]
+            buy = p.get("buys", {}).get("unit_price", 0)
+            sell = p.get("sells", {}).get("unit_price", 0)
+            material_prices[pid] = max(buy, sell) if buy or sell else 0
+
+    total_material_value = 0
+    material_breakdown = []
+    for m in material_items:
+        mid = m["id"]
+        count = m.get("count", 0)
+        price = material_prices.get(mid, 0)
+        total = count * price
+        total_material_value += total
+        if price > 0:
+            material_breakdown.append({"id": mid, "count": count, "unit_price": price, "total": total})
+
+    # 3. Bank value
+    bank_items = await get_bank(api_key)
+    bank_with_items = [b for b in bank_items if b is not None and b.get("count", 0) > 0 and b.get("id")]
+    bank_item_ids = list(set(b["id"] for b in bank_with_items))
+
+    bank_prices = {}
+    if bank_item_ids:
+        prices_raw = await get_item_prices(bank_item_ids)
+        for p in prices_raw:
+            pid = p["id"]
+            buy = p.get("buys", {}).get("unit_price", 0)
+            sell = p.get("sells", {}).get("unit_price", 0)
+            bank_prices[pid] = max(buy, sell) if buy or sell else 0
+
+    total_bank_value = 0
+    bank_breakdown = []
+    for b in bank_with_items:
+        bid = b["id"]
+        count = b.get("count", 0)
+        price = bank_prices.get(bid, 0)
+        total = count * price
+        total_bank_value += total
+        if price > 0:
+            bank_breakdown.append({"id": bid, "count": count, "unit_price": price, "total": total})
+
+    total_value = gold_value + total_material_value + total_bank_value
+
+    return {
+        "total_value_coins": total_value,
+        "total_value_gold": total_value / 10000,
+        "wallet": {"coins": gold_value, "gold": gold_value / 10000},
+        "materials": {
+            "total_coins": total_material_value,
+            "total_gold": total_material_value / 10000,
+            "items": material_breakdown[:500],
+        },
+        "bank": {
+            "total_coins": total_bank_value,
+            "total_gold": total_bank_value / 10000,
+            "items": bank_breakdown[:500],
+        },
+    }
 
 
 @router.get("/items/prices")
@@ -1261,7 +1775,11 @@ async def account_raids(authorization: Optional[str] = Header(None)):
 @router.get("/masteries")
 async def masteries_list():
     masteries = await get_masteries()
-    return {"masteries": masteries}
+    enriched = []
+    for m in masteries:
+        m["name"] = MASTERY_NAMES.get(str(m["id"]), m.get("name", f"Мастерство #{m['id']}"))
+        enriched.append(m)
+    return {"masteries": enriched}
 
 
 @router.get("/account/masteries")

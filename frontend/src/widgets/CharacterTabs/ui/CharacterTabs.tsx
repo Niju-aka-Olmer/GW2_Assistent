@@ -14,6 +14,10 @@ const TABS = [
   { path: (name: string) => `/build/${encodeURIComponent(name)}`, label: 'Экипировка' },
   { path: (name: string) => `/inventory/${encodeURIComponent(name)}`, label: 'Инвентарь' },
   { path: (name: string) => `/materials/${encodeURIComponent(name)}`, label: 'Материалы' },
+  { path: (name: string) => `/legendary-armory/${encodeURIComponent(name)}`, label: 'Легендарки' },
+  { path: (name: string) => `/dungeons/${encodeURIComponent(name)}`, label: 'Данжи' },
+  { path: (name: string) => `/world-bosses/${encodeURIComponent(name)}`, label: 'Боссы' },
+  { path: (name: string) => `/account-value/${encodeURIComponent(name)}`, label: 'Ценность' },
 ];
 
 function getActiveTab(pathname: string): string {
@@ -25,6 +29,10 @@ function getActiveTab(pathname: string): string {
   if (pathname.startsWith('/build')) return 'Экипировка';
   if (pathname.startsWith('/inventory')) return 'Инвентарь';
   if (pathname.startsWith('/materials')) return 'Материалы';
+  if (pathname.startsWith('/legendary-armory')) return 'Легендарки';
+  if (pathname.startsWith('/dungeons')) return 'Данжи';
+  if (pathname.startsWith('/world-bosses')) return 'Боссы';
+  if (pathname.startsWith('/account-value')) return 'Ценность';
   return '';
 }
 
@@ -33,7 +41,7 @@ export function CharacterTabs({ name }: CharacterTabsProps) {
   const activeTab = getActiveTab(location.pathname);
 
   return (
-    <div className="flex gap-1 mb-4 border-b border-border-primary pb-2">
+    <div className="flex gap-1 mb-4 border-b border-border-primary pb-2 overflow-x-auto whitespace-nowrap">
       {TABS.map((tab) => {
         const isActive = tab.label === activeTab;
         return (
