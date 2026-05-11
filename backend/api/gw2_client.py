@@ -334,7 +334,7 @@ async def get_item_prices(item_ids: list[int]) -> list[dict]:
             missing_ids.append(id_)
 
     if missing_ids:
-        fetched = await _get_batch("prices", missing_ids)
+        fetched = await _get_batch("commerce/prices", missing_ids)
         for price in fetched:
             price_cache.set(f"price:{price['id']}", price)
             prices_map[price["id"]] = price
@@ -486,6 +486,7 @@ async def _build_name_cache() -> dict[str, dict]:
 
 
 async def preload_item_name_cache():
+    global _item_name_cache_data
     try:
         cached = _load_name_cache_from_disk()
         if cached is not None and len(cached) > 10000:
@@ -537,6 +538,19 @@ async def _ensure_cache_ready() -> bool:
                 _name_cache_last_failure = time.time()
 
     return _name_cache_ready.is_set()
+
+
+def get_item_names(item_ids: list[int]) -> dict[int, dict]:
+    """Look up item names/icons from the in-memory name cache. Returns {id: {name, icon, rarity}}."""
+    global _item_name_cache_data
+    if not _item_name_cache_data:
+        return {}
+    result = {}
+    for iid in item_ids:
+        info = _item_name_cache_data.get(str(iid))
+        if info:
+            result[iid] = info
+    return result
 
 
 async def search_items_by_name(query: str, page: int = 0, page_size: int = 24) -> dict:

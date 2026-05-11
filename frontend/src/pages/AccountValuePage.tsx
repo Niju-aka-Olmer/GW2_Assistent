@@ -83,7 +83,7 @@ function AccountValuePageContent({ characterName }: { characterName: string }) {
             {formatGold(data.materials.total_coins)}
           </div>
           <div className="text-sm text-gray-500">
-            {data.materials.items.length} предметов с ценой
+            {data.materials.items.length} предметов
           </div>
         </Card>
 
@@ -96,7 +96,7 @@ function AccountValuePageContent({ characterName }: { characterName: string }) {
             {formatGold(data.bank.total_coins)}
           </div>
           <div className="text-sm text-gray-500">
-            {data.bank.items.length} предметов с ценой
+            {data.bank.items.length} предметов
           </div>
         </Card>
       </div>
@@ -107,17 +107,21 @@ function AccountValuePageContent({ characterName }: { characterName: string }) {
             Топ материалов по стоимости
           </h3>
           <div className="space-y-2 max-h-80 overflow-y-auto">
-            {[...data.materials.items]
-              .sort((a, b) => b.total - a.total)
+            {data.materials.items
               .slice(0, 20)
               .map((item) => (
                 <div
                   key={item.id}
                   className="flex justify-between items-center text-sm py-1 border-b border-gray-800 last:border-0"
                 >
-                  <span className="text-gray-300">
-                    ID:{item.id} x{item.count}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {item.icon && (
+                      <img src={item.icon} alt="" className="w-6 h-6 rounded" loading="lazy" />
+                    )}
+                    <span className="text-gray-300">
+                      {item.name || `ID:${item.id}`} x{item.count}
+                    </span>
+                  </div>
                   <span className="text-green-400 font-medium">
                     {formatGold(item.total)}
                   </span>
@@ -133,17 +137,21 @@ function AccountValuePageContent({ characterName }: { characterName: string }) {
             Топ предметов в банке по стоимости
           </h3>
           <div className="space-y-2 max-h-80 overflow-y-auto">
-            {[...data.bank.items]
-              .sort((a, b) => b.total - a.total)
+            {data.bank.items
               .slice(0, 20)
               .map((item) => (
                 <div
                   key={item.id}
                   className="flex justify-between items-center text-sm py-1 border-b border-gray-800 last:border-0"
                 >
-                  <span className="text-gray-300">
-                    ID:{item.id} x{item.count}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {item.icon && (
+                      <img src={item.icon} alt="" className="w-6 h-6 rounded" loading="lazy" />
+                    )}
+                    <span className="text-gray-300">
+                      {item.name || `ID:${item.id}`} x{item.count}
+                    </span>
+                  </div>
                   <span className="text-blue-400 font-medium">
                     {formatGold(item.total)}
                   </span>

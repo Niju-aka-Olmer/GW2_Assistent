@@ -20,6 +20,7 @@ from api.gw2_client import (
     get_bank,
     get_item_details,
     get_item_prices,
+    get_item_names,
     get_skill_details,
     get_trait_details,
     get_specialization_details,
@@ -446,18 +447,75 @@ async def character_full(
     authorization: Optional[str] = Header(None),
 ):
     api_key = _get_api_key(authorization)
-    core = await get_character_core(api_key, name)
-    build_data = await get_character_build_tab(api_key, name)
-    equipment_data = await get_character_equipment(api_key, name)
-    wallet_data = await get_account_wallet(api_key)
 
-    # Currency info for wallet
+    # Batch 1: Independent API calls (parallel)
+    core_task = get_character_core(api_key, name)
+    build_task = get_character_build_tab(api_key, name)
+    equip_task = get_character_equipment(api_key, name)
+    wallet_task = get_account_wallet(api_key)
+    crafting_task = get_character_crafting(api_key, name)
+
+    core, build_data, equipment_data, wallet_data, crafting_data = await asyncio.gather(
+        core_task, build_task, equip_task, wallet_task, crafting_task,
+    )
+
+    # Batch 2: Dependent API calls (parallel)
     currency_ids = [w["id"] for w in wallet_data]
+    currency_task = get_currencies(currency_ids) if currency_ids else None
+
+    spec_ids = [s["id"] for s in _get_build_specs(build_data)]
+    spec_task = get_specialization_details(spec_ids) if spec_ids else None
+
+    raw_skills = _get_build_skills(build_data)
+    flat_skill_ids = []
+    skill_entries = []
+    for slot_name, skill_id_or_list in raw_skills.items():
+        if isinstance(skill_id_or_list, list):
+            for sid in skill_id_or_list:
+                flat_skill_ids.append(sid)
+                skill_entries.append((slot_name, sid))
+        else:
+            flat_skill_ids.append(skill_id_or_list)
+            skill_entries.append((slot_name, skill_id_or_list))
+    skill_task = get_skill_details(flat_skill_ids) if flat_skill_ids else None
+
+    equipment_item_ids = [
+        eq["id"] for eq in equipment_data.get("equipment", []) if eq
+    ]
+    item_task = get_item_details(equipment_item_ids) if equipment_item_ids else None
+
+    gather_tasks = [t for t in [currency_task, spec_task, skill_task, item_task] if t is not None]
+    gather_results = await asyncio.gather(*gather_tasks) if gather_tasks else []
+
+    # Unpack results
+    result_idx = 0
     currency_map = {}
-    if currency_ids:
-        currencies = await get_currencies(currency_ids)
+    if currency_task is not None:
+        currencies = gather_results[result_idx]
         for c in currencies:
             currency_map[c["id"]] = c
+        result_idx += 1
+
+    specs_info = {}
+    if spec_task is not None:
+        specs_raw = gather_results[result_idx]
+        for s in specs_raw:
+            specs_info[s["id"]] = s
+        result_idx += 1
+
+    skills_info = {}
+    if skill_task is not None:
+        skills_raw = gather_results[result_idx]
+        for s in skills_raw:
+            skills_info[s["id"]] = s
+        result_idx += 1
+
+    equipment_details = {}
+    if item_task is not None:
+        items_raw = gather_results[result_idx]
+        for item in items_raw:
+            equipment_details[item["id"]] = _sanitize_item(item)
+        result_idx += 1
 
     # Enrich wallet
     wallet_enriched = []
@@ -474,14 +532,7 @@ async def character_full(
         })
     wallet_enriched.sort(key=lambda x: x["order"])
 
-    # Specializations with details
-    spec_ids = [s["id"] for s in _get_build_specs(build_data)]
-    specs_info = {}
-    if spec_ids:
-        specs_raw = await get_specialization_details(spec_ids)
-        for s in specs_raw:
-            specs_info[s["id"]] = s
-
+    # Build specializations
     specializations = []
     for spec in _get_build_specs(build_data):
         spec_id = spec["id"]
@@ -506,23 +557,7 @@ async def character_full(
             "selected_traits": spec.get("traits", []),
         })
 
-    # Skills with details (flatten utilities list)
-    raw_skills = _get_build_skills(build_data)
-    flat_skill_ids = []
-    skill_entries = []
-    for slot_name, skill_id_or_list in raw_skills.items():
-        if isinstance(skill_id_or_list, list):
-            for sid in skill_id_or_list:
-                flat_skill_ids.append(sid)
-                skill_entries.append((slot_name, sid))
-        else:
-            flat_skill_ids.append(skill_id_or_list)
-            skill_entries.append((slot_name, skill_id_or_list))
-    skills_info = {}
-    if flat_skill_ids:
-        skills_raw = await get_skill_details(flat_skill_ids)
-        for s in skills_raw:
-            skills_info[s["id"]] = s
+    # Build skills
     skills = {}
     for slot_name, skill_id in skill_entries:
         info = skills_info.get(skill_id, {})
@@ -536,16 +571,6 @@ async def character_full(
             "weapon_type": info.get("weapon_type", ""),
             "slot": slot_name,
         }
-
-    # Equipment with full details
-    equipment_item_ids = [
-        eq["id"] for eq in equipment_data.get("equipment", []) if eq
-    ]
-    equipment_details = {}
-    if equipment_item_ids:
-        items_raw = await get_item_details(equipment_item_ids)
-        for item in items_raw:
-            equipment_details[item["id"]] = _sanitize_item(item)
 
     # Base stats for level 80 characters (same for all professions)
     BASE_CHAR_STATS = {
@@ -684,8 +709,6 @@ async def character_full(
             } if any(item_info.get(k) for k in ["item_type", "weight_class", "defense"]) else None,
         })
 
-    # Crafting info — fetch from separate endpoint
-    crafting_data = await get_character_crafting(api_key, name)
     crafting = crafting_data.get("crafting", []) if isinstance(crafting_data, dict) else crafting_data
 
     return {
@@ -1214,8 +1237,16 @@ async def account_value(authorization: Optional[str] = Header(None)):
         price = material_prices.get(mid, 0)
         total = count * price
         total_material_value += total
-        if price > 0:
-            material_breakdown.append({"id": mid, "count": count, "unit_price": price, "total": total})
+        material_breakdown.append({"id": mid, "count": count, "unit_price": price, "total": total})
+
+    all_material_ids = [x["id"] for x in material_breakdown]
+    item_names = get_item_names(all_material_ids) if all_material_ids else {}
+    for item in material_breakdown:
+        info = item_names.get(item["id"], {})
+        item["name"] = info.get("name", "")
+        item["icon"] = info.get("icon", "")
+
+    material_breakdown.sort(key=lambda x: (-x["total"], x["id"]))
 
     # 3. Bank value
     bank_items = await get_bank(api_key)
@@ -1239,8 +1270,16 @@ async def account_value(authorization: Optional[str] = Header(None)):
         price = bank_prices.get(bid, 0)
         total = count * price
         total_bank_value += total
-        if price > 0:
-            bank_breakdown.append({"id": bid, "count": count, "unit_price": price, "total": total})
+        bank_breakdown.append({"id": bid, "count": count, "unit_price": price, "total": total})
+
+    all_bank_ids = [x["id"] for x in bank_breakdown]
+    bank_names = get_item_names(all_bank_ids) if all_bank_ids else {}
+    for item in bank_breakdown:
+        info = bank_names.get(item["id"], {})
+        item["name"] = info.get("name", "")
+        item["icon"] = info.get("icon", "")
+
+    bank_breakdown.sort(key=lambda x: (-x["total"], x["id"]))
 
     total_value = gold_value + total_material_value + total_bank_value
 

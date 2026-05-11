@@ -48,6 +48,12 @@ backend/cache/item_names.json
 test_*.py
 /tmp/
 
+# Server credentials
+login_pass_server
+
+# Artifacts
+null
+
 # Portable build artifacts
 *.zip
 askpass.*

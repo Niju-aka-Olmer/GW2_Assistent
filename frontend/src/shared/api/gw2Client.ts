@@ -147,6 +147,8 @@ interface AccountValueItem {
   count: number;
   unit_price: number;
   total: number;
+  name?: string;
+  icon?: string;
 }
 
 interface AccountValueCategory {
