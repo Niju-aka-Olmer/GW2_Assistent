@@ -5,47 +5,7 @@ import { Card } from '../shared/ui/Card';
 import { Skeleton } from '../shared/ui/Skeleton';
 import { CharacterTabs } from '../widgets/CharacterTabs/ui/CharacterTabs';
 import { gw2Client } from '../shared/api/gw2Client';
-
-const COIN_ICONS = {
-  gold: 'https://render.guildwars2.com/file/090A980A96D39FD36FBB004903644C6DBEFB1FFB/156904.png',
-  silver: 'https://render.guildwars2.com/file/E5A2197D78ECE4AE0349C8B3710D033D22DB0DA6/156907.png',
-  copper: 'https://render.guildwars2.com/file/6CF8F96A3299CFC75D5CC90617C3C70331A1EF0E/156902.png',
-};
-
-function formatGold(coins: number) {
-  const abs = Math.abs(coins);
-  const g = Math.floor(abs / 10000);
-  const remainder = abs % 10000;
-  const s = Math.floor(remainder / 100);
-  const c = remainder % 100;
-  const sign = coins < 0 ? '-' : '';
-
-  const Coin = (val: number, icon: string, showSign: boolean) => (
-    <span className="inline-flex items-center gap-0.5">
-      {showSign && sign}{val}
-      <img src={icon} alt="" className="inline-block w-4 h-4" />
-    </span>
-  );
-
-  if (g > 0) return (
-    <span className="inline-flex items-center gap-1">
-      {Coin(g, COIN_ICONS.gold, true)}
-      {Coin(s, COIN_ICONS.silver, false)}
-      {Coin(c, COIN_ICONS.copper, false)}
-    </span>
-  );
-  if (s > 0) return (
-    <span className="inline-flex items-center gap-1">
-      {Coin(s, COIN_ICONS.silver, true)}
-      {Coin(c, COIN_ICONS.copper, false)}
-    </span>
-  );
-  return (
-    <span className="inline-flex items-center gap-1">
-      {Coin(c, COIN_ICONS.copper, true)}
-    </span>
-  );
-}
+import { FormatGold } from '../shared/utils/formatGold';
 
 function AccountValuePageContent({ characterName }: { characterName: string }) {
   const { data, isLoading } = useQuery({
@@ -82,7 +42,7 @@ function AccountValuePageContent({ characterName }: { characterName: string }) {
       <Card className="p-6 bg-gradient-to-r from-yellow-900/30 to-amber-900/20 border-yellow-700/30">
         <div className="text-sm text-gray-400 mb-1">Общая стоимость аккаунта</div>
         <div className="text-3xl font-bold text-yellow-400">
-          {formatGold(data.total_value_coins)}
+          <FormatGold value={data.total_value_coins} />
         </div>
         <div className="text-sm text-gray-500 mt-1">
           ~{data.total_value_gold.toFixed(2)} золота
@@ -96,7 +56,7 @@ function AccountValuePageContent({ characterName }: { characterName: string }) {
             <h3 className="font-semibold text-gray-100">Кошелёк</h3>
           </div>
           <div className="text-2xl font-bold text-yellow-400">
-            {formatGold(data.wallet.coins)}
+            <FormatGold value={data.wallet.coins} />
           </div>
           <div className="text-sm text-gray-500">
             ~{data.wallet.gold.toFixed(2)} золота
@@ -109,7 +69,7 @@ function AccountValuePageContent({ characterName }: { characterName: string }) {
             <h3 className="font-semibold text-gray-100">Материалы</h3>
           </div>
           <div className="text-2xl font-bold text-green-400">
-            {formatGold(data.materials.total_coins)}
+            <FormatGold value={data.materials.total_coins} />
           </div>
           <div className="text-sm text-gray-500">
             {data.materials.items.length} предметов
@@ -122,7 +82,7 @@ function AccountValuePageContent({ characterName }: { characterName: string }) {
             <h3 className="font-semibold text-gray-100">Банк</h3>
           </div>
           <div className="text-2xl font-bold text-blue-400">
-            {formatGold(data.bank.total_coins)}
+            <FormatGold value={data.bank.total_coins} />
           </div>
           <div className="text-sm text-gray-500">
             {data.bank.items.length} предметов
@@ -152,7 +112,7 @@ function AccountValuePageContent({ characterName }: { characterName: string }) {
                     </span>
                   </div>
                   <span className="text-green-400 font-medium">
-                    {formatGold(item.total)}
+                    <FormatGold value={item.total} />
                   </span>
                 </div>
               ))}
@@ -182,7 +142,7 @@ function AccountValuePageContent({ characterName }: { characterName: string }) {
                     </span>
                   </div>
                   <span className="text-blue-400 font-medium">
-                    {formatGold(item.total)}
+                    <FormatGold value={item.total} />
                   </span>
                 </div>
               ))}

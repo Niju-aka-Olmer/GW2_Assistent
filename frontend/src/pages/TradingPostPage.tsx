@@ -8,6 +8,7 @@ import { SimpleMarkdown } from '../shared/ui/SimpleMarkdown';
 import { apiClient } from '../shared/api/apiClient';
 import { deepseekClient } from '../shared/api/deepseekClient';
 import { useAnalysisHistory } from '../shared/hooks/useAnalysisHistory';
+import { FormatGold } from '../shared/utils/formatGold';
 
 interface SearchItem {
   id: number;
@@ -46,15 +47,6 @@ interface ExchangeRate {
   quantity: number;
 }
 
-function formatGold(copper: number): string {
-  const abs = Math.abs(copper);
-  const g = Math.floor(abs / 10000);
-  const s = Math.floor((abs % 10000) / 100);
-  const c = abs % 100;
-  if (g > 0) return `${g}з ${s}с ${c}м`;
-  if (s > 0) return `${s}с ${c}м`;
-  return `${c}м`;
-}
 
 // --- Search history ---
 const SEARCH_HISTORY_KEY = 'gw2_tp_search_history';
@@ -491,19 +483,19 @@ export function TradingPostPage() {
                             </div>
                           </td>
                           <td className="text-right py-2 px-2 text-xs text-green-400">
-                            {item.buy_price != null ? formatGold(item.buy_price) : '-'}
+                            {item.buy_price != null ? <FormatGold value={item.buy_price} /> : '-'}
                           </td>
                           <td className="text-right py-2 px-2 text-xs text-text-secondary">
                             {item.buy_quantity != null ? item.buy_quantity.toLocaleString() : '-'}
                           </td>
                           <td className="text-right py-2 px-2 text-xs text-red-400">
-                            {item.sell_price != null ? formatGold(item.sell_price) : '-'}
+                            {item.sell_price != null ? <FormatGold value={item.sell_price} /> : '-'}
                           </td>
                           <td className="text-right py-2 px-2 text-xs text-text-secondary">
                             {item.sell_quantity != null ? item.sell_quantity.toLocaleString() : '-'}
                           </td>
                           <td className={`text-right py-2 px-2 text-xs ${isProfitable ? 'text-green-400' : 'text-text-tertiary'}`}>
-                            {spread != null ? formatGold(spread) : '-'}
+                            {spread != null ? <FormatGold value={spread} /> : '-'}
                             {spreadPercent != null && (
                               <div className="text-[10px]">({spreadPercent.toFixed(1)}%)</div>
                             )}
@@ -533,8 +525,8 @@ export function TradingPostPage() {
 
             {watchedItems.length > 0 && exchangeQuery.data && (
               <div className="mt-3 pt-3 border-t border-border-primary flex items-center gap-4 text-xs text-text-secondary">
-                <span>💎 Курс: 1 gems = {formatGold(exchangeQuery.data.coins_per_gem)}</span>
-                <span>100 gems = {formatGold(exchangeQuery.data.coins_per_gem * 100)}</span>
+                <span>💎 Курс: 1 gems = <FormatGold value={exchangeQuery.data.coins_per_gem} /></span>
+                <span>100 gems = <FormatGold value={exchangeQuery.data.coins_per_gem * 100} /></span>
               </div>
             )}
           </Card>
