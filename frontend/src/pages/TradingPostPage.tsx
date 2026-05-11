@@ -446,9 +446,9 @@ export function TradingPostPage() {
                   <thead>
                     <tr className="text-text-tertiary text-xs uppercase border-b border-border-primary">
                       <th className="text-left py-2 pr-2">Предмет</th>
-                      <th className="text-right py-2 px-2">Цена покупки</th>
+                      <th className="text-right py-2 px-2">Покупают</th>
                       <th className="text-right py-2 px-2">Объём</th>
-                      <th className="text-right py-2 px-2">Цена продажи</th>
+                      <th className="text-right py-2 px-2">Продают</th>
                       <th className="text-right py-2 px-2">Объём</th>
                       <th className="text-right py-2 px-2">Спред</th>
                       <th className="text-right py-2 pl-2"></th>
