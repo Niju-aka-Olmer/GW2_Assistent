@@ -6,16 +6,45 @@ import { Skeleton } from '../shared/ui/Skeleton';
 import { CharacterTabs } from '../widgets/CharacterTabs/ui/CharacterTabs';
 import { gw2Client } from '../shared/api/gw2Client';
 
-function formatGold(coins: number): string {
+const COIN_ICONS = {
+  gold: 'https://render.guildwars2.com/file/090A980A96D39FD36FBB004903644C6DBEFB1FFB/156904.png',
+  silver: 'https://render.guildwars2.com/file/E5A2197D78ECE4AE0349C8B3710D033D22DB0DA6/156907.png',
+  copper: 'https://render.guildwars2.com/file/6CF8F96A3299CFC75D5CC90617C3C70331A1EF0E/156902.png',
+};
+
+function formatGold(coins: number) {
   const abs = Math.abs(coins);
   const g = Math.floor(abs / 10000);
   const remainder = abs % 10000;
   const s = Math.floor(remainder / 100);
   const c = remainder % 100;
   const sign = coins < 0 ? '-' : '';
-  if (g > 0) return `${sign}${g}з ${s}с ${c}м`;
-  if (s > 0) return `${sign}${s}с ${c}м`;
-  return `${sign}${c}м`;
+
+  const Coin = (val: number, icon: string, showSign: boolean) => (
+    <span className="inline-flex items-center gap-0.5">
+      {showSign && sign}{val}
+      <img src={icon} alt="" className="inline-block w-4 h-4" />
+    </span>
+  );
+
+  if (g > 0) return (
+    <span className="inline-flex items-center gap-1">
+      {Coin(g, COIN_ICONS.gold, true)}
+      {Coin(s, COIN_ICONS.silver, false)}
+      {Coin(c, COIN_ICONS.copper, false)}
+    </span>
+  );
+  if (s > 0) return (
+    <span className="inline-flex items-center gap-1">
+      {Coin(s, COIN_ICONS.silver, true)}
+      {Coin(c, COIN_ICONS.copper, false)}
+    </span>
+  );
+  return (
+    <span className="inline-flex items-center gap-1">
+      {Coin(c, COIN_ICONS.copper, true)}
+    </span>
+  );
 }
 
 function AccountValuePageContent({ characterName }: { characterName: string }) {
