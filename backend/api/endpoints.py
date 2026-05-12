@@ -1459,9 +1459,30 @@ async def deepseek_analyze_build(
         for item in items_raw:
             equipment_details[item["id"]] = _sanitize_item(item)
 
-    # Calculate combined stats from all equipment
+    # Base stats for level 80 characters (same for all professions)
+    BASE_CHAR_STATS = {
+        "Power": 1000,
+        "Precision": 1000,
+        "Toughness": 1000,
+        "Vitality": 1000,
+        "Ferocity": 0,
+        "ConditionDamage": 0,
+        "Expertise": 0,
+        "Concentration": 0,
+        "HealingPower": 0,
+        "AgonyResistance": 0,
+    }
+
+    PROFESSION_BASE_HEALTH = {
+        "Guardian": 2125, "Warrior": 1920, "Revenant": 2250,
+        "Engineer": 1646, "Ranger": 1735, "Thief": 1145,
+        "Elementalist": 1165, "Mesmer": 1285, "Necromancer": 1944,
+    }
+
+    # Calculate combined stats from all equipment (matching /full endpoint logic)
     combined_stats = {}
     for eq in equipment_data.get("equipment", []):
+        item_info = equipment_details.get(eq["id"], {})
         raw_stats = eq.get("stats") or {}
         attrs_raw = raw_stats.get("attributes") if isinstance(raw_stats, dict) else None
         if attrs_raw and isinstance(attrs_raw, dict):
@@ -1473,6 +1494,44 @@ async def deepseek_analyze_build(
                 if isinstance(a, dict) and "attribute" in a and "modifier" in a:
                     attr_name = a["attribute"]
                     combined_stats[attr_name] = combined_stats.get(attr_name, 0) + a["modifier"]
+        elif isinstance(raw_stats, dict):
+            found_any = False
+            for k, v in raw_stats.items():
+                if k != "id" and isinstance(v, (int, float)):
+                    found_any = True
+                    combined_stats[k] = combined_stats.get(k, 0) + v
+            if not found_any:
+                item_attrs = item_info.get("attributes", {})
+                if isinstance(item_attrs, dict):
+                    for attr_name, value in item_attrs.items():
+                        if isinstance(value, (int, float)):
+                            combined_stats[attr_name] = combined_stats.get(attr_name, 0) + value
+        item_defense = item_info.get("defense")
+        if isinstance(item_defense, (int, float)):
+            combined_stats["Armor"] = combined_stats.get("Armor", 0) + item_defense
+
+    # Calculate base + bonus totals
+    profession = core.get("profession", "Guardian")
+    base_health = PROFESSION_BASE_HEALTH.get(profession, 2125)
+    base_vitality = BASE_CHAR_STATS.get("Vitality", 1000)
+    base_toughness = BASE_CHAR_STATS.get("Toughness", 1000)
+
+    total_stats = {}
+    all_attr_names = set(BASE_CHAR_STATS.keys()) | set(combined_stats.keys())
+    for attr_name in all_attr_names:
+        base = BASE_CHAR_STATS.get(attr_name, 0)
+        if attr_name == "Health":
+            bonus = combined_stats.get("Health", 0)
+            base = base_health + base_vitality * 10
+            total = base + bonus
+        elif attr_name == "Armor":
+            bonus = combined_stats.get("Armor", 0)
+            base = base_toughness
+            total = base + bonus
+        else:
+            bonus = combined_stats.get(attr_name, 0)
+            total = base + bonus
+        total_stats[attr_name] = total
 
     # Fetch upgrade (rune/sigil) names for equipment
     upgrade_ids = []
@@ -1532,6 +1591,7 @@ async def deepseek_analyze_build(
         specializations=specializations,
         equipment=equipment,
         combined_stats=combined_stats,
+        total_stats=total_stats,
         metabattle_content=metabattle_content,
     )
 
