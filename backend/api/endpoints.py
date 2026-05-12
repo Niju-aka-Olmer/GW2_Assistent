@@ -76,6 +76,20 @@ from api.gw2_client import (
     get_home_cats,
     get_homestead_decorations,
     get_homestead_glyphs,
+    get_account_guilds,
+    get_guild,
+    get_guild_stash,
+    get_guild_treasury,
+    get_guild_members,
+    get_guild_log,
+    get_guild_upgrades,
+    get_pvp_stats,
+    get_pvp_games,
+    get_pvp_heroes,
+    get_wvw_match,
+    get_wvw_objectives,
+    get_wvw_ranks,
+    get_account,
 )
 from api.deepseek_client import analyze as deepseek_analyze
 from services.build_analyzer import analyze_build_text, fetch_metabattle_build, get_metabattle_build_name
@@ -2577,3 +2591,419 @@ async def character_render(
         raise HTTPException(status_code=401, detail="API key required")
     image_data = await get_character_render(key, name)
     return Response(content=image_data, media_type="image/png")
+
+
+# ─── Guild (Этап 8) ───────────────────────────────────────────────────────────
+
+GUILD_UPGRADE_NAMES: dict[int, str] = {
+    1: "Горн добычи",
+    2: "Склад гильдии 1",
+    3: "Склад гильдии 2",
+    4: "Склад гильдии 3",
+    5: "Склад гильдии 4",
+    6: "Склад гильдии 5",
+    7: "Склад гильдии 6",
+    8: "Склад гильдии 7",
+    9: "Арена гильдии",
+    10: "Сокровищница гильдии 1",
+    11: "Сокровищница гильдии 2",
+    12: "Сокровищница гильдии 3",
+    14: "Рынок гильдии",
+    15: "Катапульта",
+    16: "Скорость строительства",
+    17: "Банк гильдии 1",
+    18: "Банк гильдии 2",
+    19: "Банк гильдии 3",
+    20: "Банк гильдии 4",
+    21: "Политика гильдии 1",
+    22: "Политика гильдии 2",
+    23: "Политика гильдии 3",
+    24: "Гильдейский молитвенный зал",
+    25: "Сокровищница гильдии 4",
+    27: "Флаг гильдии",
+    29: "Склад гильдии 8",
+    30: "Склад гильдии 9",
+    31: "Склад гильдии 10",
+    32: "Гильдейская таверна",
+    33: "Гильдейский зал",
+    34: "Сокровищница гильдии 5",
+    35: "Сокровищница гильдии 6",
+    36: "Гильдейская мастерская",
+    37: "Гильдейский рынок",
+    38: "Сокровищница гильдии 7",
+    39: "Сокровищница гильдии 8",
+    40: "Сокровищница гильдии 9",
+    41: "Сокровищница гильдии 10",
+    42: "Аванпост гильдии",
+    43: "Мастерская гильдии",
+    44: "Улучшение эмблемы",
+    46: "Аренда NPC",
+    47: "Склад гильдии 11",
+}
+
+GUILD_MEMBER_ROLES: dict[str, str] = {
+    "Member": "Участник",
+    "Officer": "Офицер",
+    "Leader": "Лидер",
+    "Initiator": "Новичок",
+}
+
+
+@router.get("/account/guilds")
+async def account_guilds(authorization: Optional[str] = Header(None)):
+    api_key = _get_api_key(authorization)
+
+    guild_ids = await get_account_guilds(api_key)
+    if not guild_ids:
+        return {"guilds": []}
+
+    guilds_data = await asyncio.gather(
+        *[get_guild(gid, api_key) for gid in guild_ids],
+        return_exceptions=True,
+    )
+
+    guilds = []
+    for gid, result in zip(guild_ids, guilds_data):
+        if isinstance(result, Exception):
+            guilds.append({"id": gid, "name": gid, "tag": "", "emblem": None})
+        else:
+            guilds.append({
+                "id": result.get("id", gid),
+                "name": result.get("name", gid),
+                "tag": result.get("tag", ""),
+                "emblem": result.get("emblem"),
+                "level": result.get("level", 0),
+                "member_count": result.get("member_count", 0),
+                "motd": result.get("motd", ""),
+            })
+
+    return {"guilds": guilds}
+
+
+@router.get("/guild/{guild_id}")
+async def guild_detail(
+    guild_id: str,
+    authorization: Optional[str] = Header(None),
+):
+    api_key = _get_api_key(authorization)
+
+    guild_info, stash_data, treasury_data, members_data, log_data, upgrades_data = await asyncio.gather(
+        get_guild(guild_id, api_key),
+        get_guild_stash(guild_id, api_key),
+        get_guild_treasury(guild_id, api_key),
+        get_guild_members(guild_id, api_key),
+        get_guild_log(guild_id, api_key),
+        get_guild_upgrades(guild_id, api_key),
+        return_exceptions=True,
+    )
+
+    # Guild info
+    if isinstance(guild_info, Exception):
+        info = {"id": guild_id, "name": guild_id, "tag": ""}
+    else:
+        info = {
+            "id": guild_info.get("id", guild_id),
+            "name": guild_info.get("name", guild_id),
+            "tag": guild_info.get("tag", ""),
+            "level": guild_info.get("level", 0),
+            "member_count": guild_info.get("member_count", 0),
+            "motd": guild_info.get("motd", ""),
+            "emblem": guild_info.get("emblem"),
+        }
+
+    # Stash
+    if isinstance(stash_data, Exception) or not stash_data:
+        stash = []
+    else:
+        all_item_ids = list(set(s.get("item_id", 0) for s in stash_data if isinstance(s, dict) and s.get("item_id")))
+        item_names = get_item_names(all_item_ids) if all_item_ids else {}
+        stash = []
+        for s in stash_data:
+            if not isinstance(s, dict):
+                continue
+            iid = s.get("item_id", 0)
+            item_info = item_names.get(iid, {})
+            stash.append({
+                "item_id": iid,
+                "name": item_info.get("name", f"Предмет {iid}"),
+                "icon": item_info.get("icon", ""),
+                "rarity": item_info.get("rarity", "Basic"),
+                "count": s.get("count", 0),
+                "coins": s.get("coins", 0),
+            })
+
+    # Treasury
+    if isinstance(treasury_data, Exception) or not treasury_data:
+        treasury = []
+    else:
+        treasury_item_ids = list(set(t.get("item_id", 0) for t in treasury_data if isinstance(t, dict) and t.get("item_id")))
+        t_item_names = get_item_names(treasury_item_ids) if treasury_item_ids else {}
+        treasury = []
+        for t in treasury_data:
+            if not isinstance(t, dict):
+                continue
+            iid = t.get("item_id", 0)
+            item_info = t_item_names.get(iid, {})
+            treasury.append({
+                "item_id": iid,
+                "name": item_info.get("name", f"Предмет {iid}"),
+                "icon": item_info.get("icon", ""),
+                "count": t.get("count", 0),
+                "needed": t.get("needed_by", []),
+            })
+
+    # Members
+    if isinstance(members_data, Exception) or not members_data:
+        members = []
+    else:
+        members = []
+        for m in members_data:
+            if not isinstance(m, dict):
+                continue
+            role_ru = GUILD_MEMBER_ROLES.get(m.get("role", ""), m.get("role", ""))
+            members.append({
+                "name": m.get("name", ""),
+                "role": role_ru,
+                "role_raw": m.get("role", ""),
+                "joined": m.get("joined", ""),
+                "rank": m.get("rank", 0),
+            })
+
+    # Log
+    if isinstance(log_data, Exception) or not log_data:
+        log = []
+    else:
+        log = []
+        for entry in log_data[:50]:
+            if not isinstance(entry, dict):
+                continue
+            log.append({
+                "id": entry.get("id", 0),
+                "type": entry.get("type", ""),
+                "user": entry.get("user", ""),
+                "time": entry.get("time", ""),
+                "motd": entry.get("motd", ""),
+                "item_id": entry.get("item_id", 0),
+                "count": entry.get("count", 0),
+            })
+
+    # Upgrades
+    if isinstance(upgrades_data, Exception) or not upgrades_data:
+        upgrades = []
+    else:
+        upgrades = []
+        for uid in upgrades_data:
+            if isinstance(uid, int):
+                upgrades.append({
+                    "id": uid,
+                    "name": GUILD_UPGRADE_NAMES.get(uid, f"Улучшение {uid}"),
+                })
+
+    return {
+        "info": info,
+        "stash": stash,
+        "treasury": treasury,
+        "members": members,
+        "log": log,
+        "upgrades": upgrades,
+    }
+
+
+# ─── PvP (Этап 9) ─────────────────────────────────────────────────────────────
+
+PvP_RANKS: dict[int, str] = {
+    1: "Бронза",
+    2: "Серебро",
+    3: "Золото",
+    4: "Платина",
+    5: "Легенда",
+}
+
+PvP_LADDERS: dict[str, str] = {
+    "unranked": "Нерейтинговый",
+    "ranked": "Рейтинговый",
+}
+
+
+@router.get("/pvp/stats")
+async def pvp_stats(authorization: Optional[str] = Header(None)):
+    api_key = _get_api_key(authorization)
+    stats = await get_pvp_stats(api_key)
+    if isinstance(stats, Exception):
+        raise HTTPException(status_code=500, detail="Failed to fetch PvP stats")
+
+    wins = stats.get("wins", 0)
+    losses = stats.get("losses", 0)
+    total = wins + losses
+    winrate = round(wins / total * 100, 1) if total > 0 else 0
+
+    # Enrich ladders
+    ladder_data = {}
+    for ladder_id, ladder_info in stats.get("ladders", {}).items():
+        ladder_ru = PvP_LADDERS.get(ladder_id, ladder_id)
+        ladder_wins = ladder_info.get("wins", 0)
+        ladder_losses = ladder_info.get("losses", 0)
+        ladder_total = ladder_wins + ladder_losses
+        ladder_data[ladder_id] = {
+            "name": ladder_ru,
+            "wins": ladder_wins,
+            "losses": ladder_losses,
+            "total": ladder_total,
+            "winrate": round(ladder_wins / ladder_total * 100, 1) if ladder_total > 0 else 0,
+            "rating": ladder_info.get("rating", 0),
+            "division": ladder_info.get("division", 0),
+            "tier": ladder_info.get("tier", 0),
+        }
+
+    # Enrich professions stats
+    prof_data = {}
+    for prof_id, prof_info in stats.get("professions", {}).items():
+        prof_data[prof_id] = {
+            "wins": prof_info.get("wins", 0),
+            "losses": prof_info.get("losses", 0),
+            "total": prof_info.get("wins", 0) + prof_info.get("losses", 0),
+        }
+
+    return {
+        "total_wins": wins,
+        "total_losses": losses,
+        "total_games": total,
+        "winrate": winrate,
+        "rank": PvP_RANKS.get(stats.get("pvp_rank", 0), f"Ранг {stats.get('pvp_rank', 0)}"),
+        "rank_points": stats.get("pvp_rank_points", 0),
+        "rank_rollups": stats.get("pvp_rank_rollups", []),
+        "ladders": ladder_data,
+        "professions": prof_data,
+    }
+
+
+@router.get("/pvp/games")
+async def pvp_games(authorization: Optional[str] = Header(None)):
+    api_key = _get_api_key(authorization)
+    games = await get_pvp_games(api_key)
+    if isinstance(games, Exception) or not games:
+        return {"games": []}
+
+    enriched = []
+    for g in games[:20]:
+        if not isinstance(g, dict):
+            continue
+        enriched.append({
+            "id": g.get("id", ""),
+            "map_id": g.get("map_id", 0),
+            "type": g.get("type", ""),
+            "result": g.get("result", ""),
+            "team": g.get("team", ""),
+            "professions": g.get("professions", []),
+            "rating_before": g.get("rating_before", 0),
+            "rating_change": g.get("rating_change", 0),
+            "rating_after": g.get("rating_after", 0),
+            "duration": g.get("duration", 0),
+            "recorded_at": g.get("recorded", ""),
+        })
+
+    return {"games": enriched}
+
+
+# ─── WvW (Этап 9) ─────────────────────────────────────────────────────────────
+
+WvW_OBJECTIVE_TYPES: dict[str, str] = {
+    "Castle": "Замок",
+    "Keep": "Крепость",
+    "Tower": "Башня",
+    "Camp": "Лагерь",
+    "Ruins": "Руины",
+    "Resource": "Ресурс",
+    "Spawn": "Точка возрождения",
+    "Temple": "Храм",
+    "Altar": "Алтарь",
+}
+
+WvW_TEAMS: dict[str, str] = {
+    "red": "Алый легион",
+    "green": "Зелёный легион",
+    "blue": "Синий легион",
+}
+
+
+@router.get("/wvw/matches")
+async def wvw_matches(authorization: Optional[str] = Header(None)):
+    api_key = _get_api_key(authorization)
+
+    acc = await get_account(api_key)
+    if isinstance(acc, Exception) or not acc.get("world"):
+        return {"error": "Could not determine world ID"}
+
+    world_id = acc["world"]
+    match_data = await get_wvw_match(world_id)
+    if isinstance(match_data, Exception):
+        return {"error": "Failed to fetch WvW match"}
+
+    objectives_map = {}
+    all_objectives = await get_wvw_objectives()
+    if isinstance(all_objectives, list):
+        for obj in all_objectives:
+            if isinstance(obj, dict):
+                objectives_map[obj.get("id")] = obj
+
+    match_id = match_data.get("id", "")
+    maps_enriched = []
+    for wvw_map in match_data.get("maps", []):
+        if not isinstance(wvw_map, dict):
+            continue
+        objectives = []
+        for sector in wvw_map.get("sectors", []):
+            if not isinstance(sector, dict):
+                continue
+            obj_id = sector.get("id", 0)
+            obj_info = objectives_map.get(str(obj_id), {})
+            owner = sector.get("owner", "neutral")
+            objectives.append({
+                "id": obj_id,
+                "name": obj_info.get("name", f"Сектор {obj_id}"),
+                "type": WvW_OBJECTIVE_TYPES.get(obj_info.get("type", ""), obj_info.get("type", "")),
+                "owner": WvW_TEAMS.get(owner, owner),
+                "owner_raw": owner,
+                "yaks_delivered": sector.get("yaks_delivered", 0),
+                "claimed_by": sector.get("claimed_by", ""),
+                "claimed_at": sector.get("claimed_at", ""),
+            })
+
+        # Skirmish scores
+        scores = {}
+        for team_key in ["red", "green", "blue"]:
+            scores[team_key] = {
+                "name": WvW_TEAMS.get(team_key, team_key),
+                "score": wvw_map.get("scores", {}).get(team_key, 0),
+            }
+
+        maps_enriched.append({
+            "id": wvw_map.get("id", 0),
+            "type": wvw_map.get("type", ""),
+            "scores": scores,
+            "objectives": objectives,
+            "bonuses": wvw_map.get("bonuses", []),
+        })
+
+    # Overall scores
+    overall_scores = {}
+    for team_key in ["red", "green", "blue"]:
+        overall_scores[team_key] = {
+            "name": WvW_TEAMS.get(team_key, team_key),
+            "score": match_data.get("scores", {}).get(team_key, 0),
+        }
+
+    # Skirmish info
+    skirmish = match_data.get("skirmish", {})
+    current_skirmish = skirmish.get("current", {})
+
+    return {
+        "match_id": match_id,
+        "world_id": world_id,
+        "scores": overall_scores,
+        "maps": maps_enriched,
+        "skirmish": {
+            "id": current_skirmish.get("id", 0),
+            "scores": current_skirmish.get("scores", {}),
+        },
+    }

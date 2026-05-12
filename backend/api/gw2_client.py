@@ -664,6 +664,71 @@ async def get_homestead_glyphs(api_key: str) -> list[dict]:
     return await _get("account/homestead/glyphs", api_key=api_key)
 
 
+async def get_account_guilds(api_key: str) -> list[str]:
+    """Fetch guild IDs the account belongs to."""
+    return await _get("account/guilds", api_key=api_key)
+
+
+async def get_guild(guild_id: str, api_key: str) -> dict:
+    """Fetch guild details (name, tag, emblem)."""
+    return await _get(f"guild/{guild_id}", api_key=api_key)
+
+
+async def get_guild_stash(guild_id: str, api_key: str) -> list[dict]:
+    """Fetch guild bank stash."""
+    return await _get(f"guild/{guild_id}/stash", api_key=api_key)
+
+
+async def get_guild_treasury(guild_id: str, api_key: str) -> list[dict]:
+    """Fetch guild treasury."""
+    return await _get(f"guild/{guild_id}/treasury", api_key=api_key)
+
+
+async def get_guild_members(guild_id: str, api_key: str) -> list[dict]:
+    """Fetch guild members."""
+    return await _get(f"guild/{guild_id}/members", api_key=api_key)
+
+
+async def get_guild_log(guild_id: str, api_key: str) -> list[dict]:
+    """Fetch guild log."""
+    return await _get(f"guild/{guild_id}/log", api_key=api_key)
+
+
+async def get_guild_upgrades(guild_id: str, api_key: str) -> list[int]:
+    """Fetch guild upgrade IDs."""
+    return await _get(f"guild/{guild_id}/upgrades", api_key=api_key)
+
+
+async def get_pvp_stats(api_key: str) -> dict:
+    """Fetch PvP stats for the account."""
+    return await _get("pvp/stats", api_key=api_key)
+
+
+async def get_pvp_games(api_key: str) -> list[dict]:
+    """Fetch recent PvP games for the account."""
+    return await _get("pvp/games", api_key=api_key)
+
+
+async def get_pvp_heroes(api_key: str) -> list[int]:
+    """Fetch unlocked PvP hero IDs."""
+    return await _get("account/pvp/heroes", api_key=api_key)
+
+
+async def get_wvw_match(world_id: int) -> dict:
+    """Fetch current WvW match for a given world."""
+    return await _get("wvw/matches", params={"world": world_id})
+
+
+async def get_wvw_objectives() -> list[dict]:
+    """Fetch all WvW objectives with details."""
+    return await _get("wvw/objectives?ids=all")
+
+
+async def get_wvw_ranks() -> list[dict]:
+    """Fetch all WvW ranks."""
+    return await _get("wvw/ranks?ids=all")
+
+
 async def get_character_render(api_key: str, name: str) -> bytes:
     from urllib.parse import quote
     headers = {"Authorization": f"Bearer {api_key}"}

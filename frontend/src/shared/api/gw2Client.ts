@@ -200,6 +200,170 @@ interface HomeResponse {
   glyphs: HomesteadGlyph[];
 }
 
+// ─── Guild (Этап 8) ─────────────────────────────────────────────────────────
+
+interface GuildEmblem {
+  background: {
+    id: number;
+    colors: number[];
+  };
+  foreground: {
+    id: number;
+    colors: number[];
+  };
+  flags: string[];
+}
+
+interface GuildInfo {
+  id: string;
+  name: string;
+  tag: string;
+  level: number;
+  member_count: number;
+  motd: string;
+  emblem: GuildEmblem | null;
+}
+
+interface GuildStashItem {
+  item_id: number;
+  name: string;
+  icon: string;
+  rarity: string;
+  count: number;
+  coins: number;
+}
+
+interface GuildTreasuryItem {
+  item_id: number;
+  name: string;
+  icon: string;
+  count: number;
+  needed: string[];
+}
+
+interface GuildMember {
+  name: string;
+  role: string;
+  role_raw: string;
+  joined: string;
+  rank: number;
+}
+
+interface GuildLogEntry {
+  id: number;
+  type: string;
+  user: string;
+  time: string;
+  motd?: string;
+  item_id?: number;
+  count?: number;
+}
+
+interface GuildUpgrade {
+  id: number;
+  name: string;
+}
+
+interface AccountGuildsResponse {
+  guilds: GuildInfo[];
+}
+
+interface GuildDetailResponse {
+  info: GuildInfo;
+  stash: GuildStashItem[];
+  treasury: GuildTreasuryItem[];
+  members: GuildMember[];
+  log: GuildLogEntry[];
+  upgrades: GuildUpgrade[];
+}
+
+// ─── PvP (Этап 9) ───────────────────────────────────────────────────────────
+
+interface PvPLadder {
+  name: string;
+  wins: number;
+  losses: number;
+  total: number;
+  winrate: number;
+  rating: number;
+  division: number;
+  tier: number;
+}
+
+interface PvPProfessionStats {
+  wins: number;
+  losses: number;
+  total: number;
+}
+
+interface PvPStatsResponse {
+  total_wins: number;
+  total_losses: number;
+  total_games: number;
+  winrate: number;
+  rank: string;
+  rank_points: number;
+  ladders: Record<string, PvPLadder>;
+  professions: Record<string, PvPProfessionStats>;
+}
+
+interface PvPGame {
+  id: string;
+  map_id: number;
+  type: string;
+  result: string;
+  team: string;
+  professions: string[];
+  rating_before: number;
+  rating_change: number;
+  rating_after: number;
+  duration: number;
+  recorded_at: string;
+}
+
+interface PvPGamesResponse {
+  games: PvPGame[];
+}
+
+// ─── WvW (Этап 9) ───────────────────────────────────────────────────────────
+
+interface WvWScore {
+  name: string;
+  score: number;
+}
+
+interface WvWObjective {
+  id: number;
+  name: string;
+  type: string;
+  owner: string;
+  owner_raw: string;
+  yaks_delivered: number;
+  claimed_by: string;
+  claimed_at: string;
+}
+
+interface WvWMap {
+  id: number;
+  type: string;
+  scores: Record<string, WvWScore>;
+  objectives: WvWObjective[];
+  bonuses: unknown[];
+}
+
+interface WvWSkirmish {
+  id: number;
+  scores: Record<string, number>;
+}
+
+interface WvWMatchResponse {
+  match_id: string;
+  world_id: number;
+  scores: Record<string, WvWScore>;
+  maps: WvWMap[];
+  skirmish: WvWSkirmish;
+}
+
 export const gw2Client = {
   auth: async () => {
     const { data } = await apiClient.post<AuthResponse>('/auth');
@@ -400,6 +564,31 @@ export const gw2Client = {
 
   getHomeData: async () => {
     const { data } = await apiClient.get<HomeResponse>('/account/home');
+    return data;
+  },
+
+  getGuilds: async () => {
+    const { data } = await apiClient.get<AccountGuildsResponse>('/account/guilds');
+    return data;
+  },
+
+  getGuildDetail: async (guildId: string) => {
+    const { data } = await apiClient.get<GuildDetailResponse>(`/guild/${encodeURIComponent(guildId)}`);
+    return data;
+  },
+
+  getPvPStats: async () => {
+    const { data } = await apiClient.get<PvPStatsResponse>('/pvp/stats');
+    return data;
+  },
+
+  getPvPGames: async () => {
+    const { data } = await apiClient.get<PvPGamesResponse>('/pvp/games');
+    return data;
+  },
+
+  getWvWMatch: async () => {
+    const { data } = await apiClient.get<WvWMatchResponse>('/wvw/matches');
     return data;
   },
 };

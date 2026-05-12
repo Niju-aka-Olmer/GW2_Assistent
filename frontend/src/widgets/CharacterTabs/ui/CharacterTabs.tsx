@@ -19,6 +19,9 @@ const TABS = [
   { path: (name: string) => `/world-bosses/${encodeURIComponent(name)}`, label: 'Боссы' },
   { path: (name: string) => `/account-value/${encodeURIComponent(name)}`, label: 'Ценность' },
   { path: (name: string) => `/home/${encodeURIComponent(name)}`, label: 'Дом' },
+  { path: (name: string) => `/guild/${encodeURIComponent(name)}`, label: 'Гильдия' },
+  { path: (name: string) => `/pvp/${encodeURIComponent(name)}`, label: 'PvP' },
+  { path: (name: string) => `/wvw/${encodeURIComponent(name)}`, label: 'WvW' },
 ];
 
 function getActiveTab(pathname: string): string {
@@ -35,6 +38,9 @@ function getActiveTab(pathname: string): string {
   if (pathname.startsWith('/world-bosses')) return 'Боссы';
   if (pathname.startsWith('/account-value')) return 'Ценность';
   if (pathname.startsWith('/home')) return 'Дом';
+  if (pathname.startsWith('/guild')) return 'Гильдия';
+  if (pathname.startsWith('/pvp')) return 'PvP';
+  if (pathname.startsWith('/wvw')) return 'WvW';
   return '';
 }
 

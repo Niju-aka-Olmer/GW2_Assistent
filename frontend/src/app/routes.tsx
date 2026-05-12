@@ -17,6 +17,9 @@ import { DungeonsPage } from '../pages/DungeonsPage';
 import { WorldBossesPage } from '../pages/WorldBossesPage';
 import { AccountValuePage } from '../pages/AccountValuePage';
 import { HomePage } from '../pages/HomePage';
+import { GuildPage } from '../pages/GuildPage';
+import { PvPPage } from '../pages/PvPPage';
+import { WvWPage } from '../pages/WvWPage';
 import { ErrorBoundary } from '../shared/ui/ErrorBoundary';
 
 export function AppRoutes() {
@@ -42,6 +45,9 @@ export function AppRoutes() {
           <Route path="/world-bosses/:name" element={<WorldBossesPage />} />
           <Route path="/account-value/:name" element={<AccountValuePage />} />
           <Route path="/home/:name" element={<HomePage />} />
+          <Route path="/guild/:name" element={<GuildPage />} />
+          <Route path="/pvp/:name" element={<PvPPage />} />
+          <Route path="/wvw/:name" element={<WvWPage />} />
         </Routes>
       </ErrorBoundary>
     </BrowserRouter>

@@ -264,13 +264,37 @@ API: кошелёк + материалы + банк + цены TP
 
 
 ## Этап 7: Home Instance / Homestead
-**Статус: ⏳ В ОЧЕРЕДИ**
+**Статус: ✅ ГОТОВО (v1.22)**
 
 API: `/v2/account/home/nodes` + `/v2/account/home/cats` + `/v2/account/homestead/*`
 
-### Что сделать:
-- [ ] Backend: `/api/account/home` — ноды, коты, украшения
-- [ ] Frontend: страница домашней инстанции
+### Что сделано:
+
+**Backend (Python):**
+- [x] `gw2_client.py` — функции:
+  - `get_home_nodes(api_key)` — список узлов домашней инстанции
+  - `get_home_cats(api_key)` — список кошек
+  - `get_homestead_decorations(api_key)` — украшения из усадьбы
+  - `get_homestead_glyphs(api_key)` — глифы из усадьбы
+- [x] `endpoints.py` — эндпоинт `GET /api/account/home`:
+  - Обогащение узлов: русские названия и иконки (словарь HOME_NODE_NAMES на ~80+ узлов)
+  - Обогащение кошек: русские имена (словарь CAT_NAMES на 70 пород), hint
+  - Обогащение украшений: имена/иконки/редкость через IDs предметов
+  - Обогащение глифов: имена/иконки/редкость через IDs предметов
+  - Сортировка каждого раздела по имени
+
+**Frontend (React/TypeScript):**
+- [x] `gw2Client.ts` — метод `getHomeData()` + интерфейсы `HomeNode`, `HomeCat`, `HomesteadDecoration`, `HomesteadGlyph`, `HomeResponse`
+- [x] Создана страница `HomePage.tsx`:
+  - 4 секции: Узлы, Кошки, Украшения усадьбы, Глифы усадьбы
+  - Иконки узлов/предметов
+  - Счётчики количества в каждом разделе
+  - Отображение редкости (цветовая маркировка)
+  - Обработка пустых секций (уведомление)
+  - Загрузчик Skeleton
+  - Кеширование 60s через React Query
+- [x] Роут `/home/:name` в `routes.tsx`
+- [x] Вкладка "Дом" в `CharacterTabs.tsx`
 
 
 ## Этап 8: Гильдия (Guild)
