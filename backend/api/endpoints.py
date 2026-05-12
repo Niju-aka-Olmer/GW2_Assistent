@@ -2653,7 +2653,8 @@ GUILD_MEMBER_ROLES: dict[str, str] = {
 async def account_guilds(authorization: Optional[str] = Header(None)):
     api_key = _get_api_key(authorization)
 
-    guild_ids = await get_account_guilds(api_key)
+    account_data = await get_account(api_key)
+    guild_ids = account_data.get("guilds", []) if isinstance(account_data, dict) else []
     if not guild_ids:
         return {"guilds": []}
 
