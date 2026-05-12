@@ -52,29 +52,49 @@ def download_and_extract(download_url: str, target_dir: Path) -> bool:
             data = resp.read()
 
         temp_dir = Path(tempfile.mkdtemp())
-        try:
-            with zipfile.ZipFile(io.BytesIO(data)) as zf:
-                zf.extractall(str(temp_dir))
+        update_dir = temp_dir / "update"
+        update_dir.mkdir(parents=True, exist_ok=True)
 
-            items = list(temp_dir.iterdir())
-            if len(items) == 1 and items[0].is_dir():
-                source = items[0]
+        with zipfile.ZipFile(io.BytesIO(data)) as zf:
+            zf.extractall(str(update_dir))
+
+        items = list(update_dir.iterdir())
+        if len(items) == 1 and items[0].is_dir():
+            source = items[0]
+        else:
+            source = update_dir
+
+        update_temp = Path(tempfile.mkdtemp())
+        for item in source.iterdir():
+            dest = update_temp / item.name
+            if item.is_dir():
+                shutil.copytree(item, dest)
             else:
-                source = temp_dir
+                shutil.copy2(item, dest)
 
-            for item in source.iterdir():
-                dest = target_dir / item.name
-                if item.is_dir():
-                    if dest.exists():
-                        shutil.rmtree(dest)
-                    shutil.copytree(item, dest)
-                else:
-                    shutil.copy2(item, dest)
+        bat_path = target_dir / "_update.bat"
+        bat_content = f"""@echo off
+chcp 65001 >nul
+title GW2 Assist — Обновление
+echo Ожидание завершения обновления...
+ping -n 3 127.0.0.1 >nul
+echo Копирование файлов...
+xcopy /E /Y /Q "{update_temp}\\*.*" "{target_dir}\\"
+echo Очистка временных файлов...
+rmdir /S /Q "{update_temp}" 2>nul
+rmdir /S /Q "{temp_dir}" 2>nul
+echo Обновление завершено!
+if exist "{target_dir}\\backend.exe" (
+    start "" "{target_dir}\\backend.exe"
+)
+del "%~f0"
+"""
+        with open(bat_path, "w", encoding="utf-8") as f:
+            f.write(bat_content)
 
-            print("Обновление завершено.")
-            return True
-        finally:
-            shutil.rmtree(temp_dir, ignore_errors=True)
+        print("Запуск процесса обновления...")
+        os.startfile(str(bat_path))
+        return True
     except Exception as e:
         print(f"Ошибка обновления: {e}")
         return False
@@ -130,7 +150,8 @@ def main():
             return 1
 
     if download_and_extract(zip_url, base_dir):
-        print("Перезапустите программу для применения обновления.")
+        print("Обновление будет применено после закрытия программы.")
+        os._exit(0)
     return 0
 
 
