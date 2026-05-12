@@ -12,6 +12,9 @@ import uvicorn
 from api.endpoints import router
 from api.gw2_client import preload_item_name_cache
 
+if sys.platform.startswith('win'):
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
 logger = logging.getLogger(__name__)
 

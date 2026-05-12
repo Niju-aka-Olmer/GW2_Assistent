@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import logging
+import ssl
 import time
 
 import httpx
@@ -50,7 +51,11 @@ async def _get(
                 detail = "Rate limit exceeded"
             raise GW2APIError(detail=detail, status_code=status)
         except httpx.RequestError as e:
-            raise GW2APIError(detail=str(e))
+            raise GW2APIError(detail=f"Ошибка сети: {e}")
+        except ssl.SSLError as e:
+            raise GW2APIError(detail=f"Ошибка SSL: {e}")
+        except Exception as e:
+            raise GW2APIError(detail=f"Неизвестная ошибка: {e}")
 
 
 async def get_legendary_armory(api_key: str) -> list[dict]:
