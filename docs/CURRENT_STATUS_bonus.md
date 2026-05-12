@@ -200,23 +200,67 @@ API: `/v2/account/dungeons` + `/v2/account/dailycrafting`
 
 
 ## Этап 5: World Boss трекер
-**Статус: ⏳ В ОЧЕРЕДИ**
+**Статус: ✅ ГОТОВО (v1.19)**
 
 API: `/v2/account/worldbosses`
 
-### Что сделать:
-- [ ] Backend: `get_worldbosses(api_key)` + endpoint `/api/account/world-bosses`
-- [ ] Frontend: список боссов, таймеры, отметки убитых
+### Что сделано:
+
+**Backend (Python):**
+- [x] `gw2_client.py` — функция `get_worldbosses(api_key)` — список убитых боссов
+- [x] `endpoints.py` — эндпоинт `GET /api/account/world-bosses`:
+  - Список всех мировых боссов с расписанием
+  - Обогащение: имена (RU), иконки, статус убит/не убит
+  - Таймеры до следующего появления
+  - Фильтрация по региону (Central Tyria / Maguuma / PoF / EoD / Janthir)
+
+**Frontend (React/TypeScript):**
+- [x] `gw2Client.ts` — метод `getWorldBosses()` + интерфейс `WorldBossInfo`
+- [x] Создана страница `WorldBossesPage.tsx`:
+  - Список боссов с иконками, именами (RU), уровнями
+  - Статус убит/не убит за неделю (галками)
+  - Разбивка по регионам (сворачиваемые блоки)
+  - Поиск по названию
+  - Кеширование 60s
+- [x] Роут `/world-bosses/:name` в `routes.tsx`
+- [x] Вкладка "Боссы" в `CharacterTabs.tsx`
+
+**Исправления:**
+- [x] Словарь `WORLD_BOSS_NAMES` с русскими названиями для всех боссов
+- [x] Словарь `WORLD_BOSS_ICONS` с иконками
 
 
 ## Этап 6: Account Value — стоимость аккаунта
-**Статус: ⏳ В ОЧЕРЕДИ**
+**Статус: ✅ ГОТОВО (v1.20)**
 
 API: кошелёк + материалы + банк + цены TP
 
-### Что сделать:
-- [ ] Backend: `/api/account/value` — агрегирует всё в золото
-- [ ] Frontend: дашборд с общей стоимостью и разбивкой
+### Что сделано:
+
+**Backend (Python):**
+- [x] `gw2_client.py` — функции:
+  - `get_account_value(api_key)` — агрегирует всё в золото
+- [x] `endpoints.py` — эндпоинт `GET /api/account/value`:
+  - Кошелёк (wallet)
+  - Материалы (materials)
+  - Банк (bank)
+  - Инвентарь (inventory)
+  - Итоговая сумма в золоте
+
+**Frontend (React/TypeScript):**
+- [x] `gw2Client.ts` — метод `getAccountValue()` + интерфейс `AccountValueResponse`
+- [x] Создана страница `AccountValuePage.tsx`:
+  - Дашборд с общей стоимостью и разбивкой по категориям
+  - Иконки монет (з/с/м) вместо текста
+  - Цветовая индикация сумм
+  - Кеширование 60s
+- [x] Роут `/account-value/:name` в `routes.tsx`
+- [x] Вкладка "Ценность" в `CharacterTabs.tsx`
+- [x] Общий компонент `formatGold` с иконками монет
+
+**Исправления:**
+- [x] Исправлены названия предметов
+- [x] Иконки монет вместо текста «з/с/м»
 
 
 ## Этап 7: Home Instance / Homestead
