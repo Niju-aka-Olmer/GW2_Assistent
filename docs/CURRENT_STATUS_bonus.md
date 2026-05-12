@@ -298,20 +298,87 @@ API: `/v2/account/home/nodes` + `/v2/account/home/cats` + `/v2/account/homestead
 
 
 ## Этап 8: Гильдия (Guild)
-**Статус: ⏳ В ОЧЕРЕДИ**
+**Статус: ✅ ГОТОВО (v1.23)**
 
-API: `/v2/guild/:id/stash`, `/treasury`, `/members`, `/log`
+API: `/v2/guild/:id/stash`, `/treasury`, `/members`, `/log`, `/upgrades`
 
-### Что сделать:
-- [ ] Backend: `/api/guild/:id/*` — банк, казна, логи
-- [ ] Frontend: страница гильдии
+### Что сделано:
+
+**Backend (Python):**
+- [x] `gw2_client.py` — функции:
+  - `get_account_guilds(api_key)` — список ID гильдий
+  - `get_guild(guild_id, api_key)` — детали гильдии (название, тег, эмблема, MOTD)
+  - `get_guild_stash(guild_id, api_key)` — банк гильдии
+  - `get_guild_treasury(guild_id, api_key)` — казна гильдии
+  - `get_guild_members(guild_id, api_key)` — участники с ролями
+  - `get_guild_log(guild_id, api_key)` — лог событий
+  - `get_guild_upgrades(guild_id, api_key)` — ID улучшений
+- [x] `endpoints.py` — эндпоинты:
+  - `GET /api/account/guilds` — список гильдий с названием, тегом, уровнем, MOTD, эмблемой (использует `/v2/account` для списка)
+  - `GET /api/guild/{guild_id}` — полная информация:
+    - Банк: обогащение предметов (имена, иконки, редкость)
+    - Казна: обогащение предметов (количество, needed_by)
+    - Участники: роли на русском (Лидер/Oфицер/Участник)
+    - Лог: последние 50 записей с типом, пользователем, MOTD
+    - Улучшения: названия (~30+ улучшений в словаре)
+
+**Frontend (React/TypeScript):**
+- [x] `gw2Client.ts` — метод `getGuilds()`, `getGuildDetail(guildId)` + интерфейсы `GuildInfo`, `GuildEmblem`, `GuildStashItem`, `GuildTreasuryItem`, `GuildMember`, `GuildLogEntry`, `GuildUpgrade`, `AccountGuildsResponse`, `GuildDetailResponse`
+- [x] Создана страница `GuildPage.tsx`:
+  - Заголовок гильдии: эмблема, название, тег, уровень, участники, MOTD
+  - 5 вкладок: Банк, Казна, Участники, Лог, Улучшения
+  - Банк: иконки предметов, количество, монеты
+  - Казна: предметы с количеством
+  - Участники: таблица с ролью (цветовая маркировка), датой вступления, рангом
+  - Лог: хронология событий с типом и пользователем
+  - Улучшения: сетка названий улучшений
+  - Обработка пустых секций
+  - Кеширование 120s через React Query
+- [x] Роут `/guild/:name` в `routes.tsx`
+- [x] Вкладка "Гильдия" в `CharacterTabs.tsx`
 
 
 ## Этап 9: PvP / WvW
-**Статус: ⏳ В ОЧЕРЕДИ**
+**Статус: ✅ ГОТОВО (v1.23)**
 
 API: `/v2/pvp/stats`, `/pvp/games`, `/wvw/matches`
 
-### Что сделать:
-- [ ] Backend: `/api/pvp/*`, `/api/wvw/*`
-- [ ] Frontend: дашборды PvP и WvW
+### Что сделано:
+
+**Backend (Python):**
+- [x] `gw2_client.py` — функции:
+  - `get_pvp_stats(api_key)` — статистика PvP (победы/поражения/рейтинг)
+  - `get_pvp_games(api_key)` — история матчей
+  - `get_pvp_heroes(api_key)` — разблокированные герои
+  - `get_wvw_match(world_id)` — текущий WvW матч по миру
+  - `get_wvw_objectives()` — все цели WvW с деталями
+  - `get_wvw_ranks()` — ранги WvW
+- [x] `endpoints.py` — эндпоинты:
+  - `GET /api/pvp/stats` — статистика:
+    - Общая: победы/поражения/winrate/ранг/очки
+    - По режимам (лесенки): победы/поражения/рейтинг/дивизион/тир
+    - По классам: победы/поражения/всего игр
+  - `GET /api/pvp/games` — последние 20 игр с результатом, рейтингом, длительностью
+  - `GET /api/wvw/matches` — полная картина матча:
+    - Очки миров (1-3 место)
+    - Очки по картам (4 карты: Центр, Альпы, Пустоши, Эко-Карта)
+    - Список целей с владельцем, названием, claimed_by
+    - Скирмиши с очками
+
+**Frontend (React/TypeScript):**
+- [x] `gw2Client.ts` — методы `getPvPStats()`, `getPvPGames()`, `getWvWMatch()` + интерфейсы `PvPStatsResponse`, `PvPGame`, `PvPLadder`, `PvPProfessionStats`, `WvWMatchResponse`, `WvWMap`, `WvWObjective` и др.
+- [x] Создана страница `PvPPage.tsx`:
+  - Общая статистика: игры/победы(зелёные)/поражения(красные)/winrate/ранг
+  - 2 вкладки: "По режимам и классам" и "Последние игры"
+  - Лесенки по режимам с рейтингом/дивизионом/тиром
+  - Статистика по классам с иконками и сортировкой
+  - История игр с цветовой маркировкой (победа/поражение)
+- [x] Создана страница `WvWPage.tsx`:
+  - Общие очки миров с медалями (🥇🥈🥉) и цветами команд
+  - Карты с очками и целями
+  - Цели с цветовой маркировкой владельца (красный/зелёный/синий)
+  - Информация о захватившем (claimed_by)
+  - Скирмиши с очками
+  - Кеширование 120s через React Query
+- [x] Роуты `/pvp/:name`, `/wvw/:name` в `routes.tsx`
+- [x] Вкладки "PvP" и "WvW" в `CharacterTabs.tsx`
