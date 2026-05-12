@@ -13,15 +13,10 @@ const TABS = [
   { path: (name: string) => `/collections/${encodeURIComponent(name)}`, label: 'Коллекции' },
   { path: (name: string) => `/build/${encodeURIComponent(name)}`, label: 'Экипировка' },
   { path: (name: string) => `/inventory/${encodeURIComponent(name)}`, label: 'Инвентарь' },
-  { path: (name: string) => `/materials/${encodeURIComponent(name)}`, label: 'Материалы' },
-  { path: (name: string) => `/legendary-armory/${encodeURIComponent(name)}`, label: 'Легендарки' },
-  { path: (name: string) => `/dungeons/${encodeURIComponent(name)}`, label: 'Данжи' },
-  { path: (name: string) => `/world-bosses/${encodeURIComponent(name)}`, label: 'Боссы' },
+  { path: (name: string) => `/pve/${encodeURIComponent(name)}`, label: 'PvE' },
+  { path: (name: string) => `/home-guild/${encodeURIComponent(name)}`, label: 'Дом+Гильдия' },
+  { path: (name: string) => `/competitive/${encodeURIComponent(name)}`, label: 'PvP+WvW' },
   { path: (name: string) => `/account-value/${encodeURIComponent(name)}`, label: 'Ценность' },
-  { path: (name: string) => `/home/${encodeURIComponent(name)}`, label: 'Дом' },
-  { path: (name: string) => `/guild/${encodeURIComponent(name)}`, label: 'Гильдия' },
-  { path: (name: string) => `/pvp/${encodeURIComponent(name)}`, label: 'PvP' },
-  { path: (name: string) => `/wvw/${encodeURIComponent(name)}`, label: 'WvW' },
 ];
 
 function getActiveTab(pathname: string): string {
@@ -32,15 +27,10 @@ function getActiveTab(pathname: string): string {
   if (pathname.startsWith('/collections')) return 'Коллекции';
   if (pathname.startsWith('/build')) return 'Экипировка';
   if (pathname.startsWith('/inventory')) return 'Инвентарь';
-  if (pathname.startsWith('/materials')) return 'Материалы';
-  if (pathname.startsWith('/legendary-armory')) return 'Легендарки';
-  if (pathname.startsWith('/dungeons')) return 'Данжи';
-  if (pathname.startsWith('/world-bosses')) return 'Боссы';
+  if (pathname.startsWith('/pve')) return 'PvE';
+  if (pathname.startsWith('/home-guild')) return 'Дом+Гильдия';
+  if (pathname.startsWith('/competitive')) return 'PvP+WvW';
   if (pathname.startsWith('/account-value')) return 'Ценность';
-  if (pathname.startsWith('/home')) return 'Дом';
-  if (pathname.startsWith('/guild')) return 'Гильдия';
-  if (pathname.startsWith('/pvp')) return 'PvP';
-  if (pathname.startsWith('/wvw')) return 'WvW';
   return '';
 }
 

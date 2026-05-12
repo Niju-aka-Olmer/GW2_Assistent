@@ -3,7 +3,6 @@ import { CharacterSelectPage } from '../pages/CharacterSelectPage';
 import { CharacterPage } from '../pages/CharacterPage';
 import { BuildPage } from '../pages/BuildPage';
 import { InventoryPage } from '../pages/InventoryPage';
-import { LegendaryArmoryPage } from '../pages/LegendaryArmoryPage';
 import { RecommendationsPage } from '../pages/RecommendationsPage';
 import { TradingPostPage } from '../pages/TradingPostPage';
 import { CharacterAchievementsPage } from '../pages/CharacterAchievementsPage';
@@ -12,14 +11,10 @@ import { CharacterMasteriesPage } from '../pages/CharacterMasteriesPage';
 import { CharacterCollectionsPage } from '../pages/CharacterCollectionsPage';
 import { ReferencePage } from '../pages/ReferencePage';
 import { WizardVaultPage } from '../pages/WizardVaultPage';
-import { MaterialsPage } from '../pages/MaterialsPage';
-import { DungeonsPage } from '../pages/DungeonsPage';
-import { WorldBossesPage } from '../pages/WorldBossesPage';
 import { AccountValuePage } from '../pages/AccountValuePage';
-import { HomePage } from '../pages/HomePage';
-import { GuildPage } from '../pages/GuildPage';
-import { PvPPage } from '../pages/PvPPage';
-import { WvWPage } from '../pages/WvWPage';
+import { PvEPage } from '../pages/PvEPage';
+import { HomeGuildPage } from '../pages/HomeGuildPage';
+import { CompetitivePage } from '../pages/CompetitivePage';
 import { ErrorBoundary } from '../shared/ui/ErrorBoundary';
 
 export function AppRoutes() {
@@ -39,15 +34,10 @@ export function AppRoutes() {
           <Route path="/trading-post" element={<TradingPostPage />} />
           <Route path="/reference" element={<ReferencePage />} />
           <Route path="/wizards-vault" element={<WizardVaultPage />} />
-          <Route path="/materials/:name" element={<MaterialsPage />} />
-          <Route path="/legendary-armory/:name" element={<LegendaryArmoryPage />} />
-          <Route path="/dungeons/:name" element={<DungeonsPage />} />
-          <Route path="/world-bosses/:name" element={<WorldBossesPage />} />
           <Route path="/account-value/:name" element={<AccountValuePage />} />
-          <Route path="/home/:name" element={<HomePage />} />
-          <Route path="/guild/:name" element={<GuildPage />} />
-          <Route path="/pvp/:name" element={<PvPPage />} />
-          <Route path="/wvw/:name" element={<WvWPage />} />
+          <Route path="/pve/:name" element={<PvEPage />} />
+          <Route path="/home-guild/:name" element={<HomeGuildPage />} />
+          <Route path="/competitive/:name" element={<CompetitivePage />} />
         </Routes>
       </ErrorBoundary>
     </BrowserRouter>
