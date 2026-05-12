@@ -8,9 +8,9 @@ build/
 .venv/
 venv/
 env/
-*.spec
 build_venv/
 build_temp*/
+build_env/
 backend/pyi/
 backend/pyi_user/
 backend/pyinstaller_build/
