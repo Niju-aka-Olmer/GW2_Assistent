@@ -644,6 +644,26 @@ async def get_wizardsvault_all_listings() -> list[dict]:
     return await _get("wizardsvault/listings")
 
 
+async def get_home_nodes(api_key: str) -> list[str]:
+    """Fetch unlocked home instance node IDs."""
+    return await _get("account/home/nodes", api_key=api_key)
+
+
+async def get_home_cats(api_key: str) -> list[dict]:
+    """Fetch home instance cats."""
+    return await _get("account/home/cats", api_key=api_key)
+
+
+async def get_homestead_decorations(api_key: str) -> list[dict]:
+    """Fetch homestead decorations."""
+    return await _get("account/homestead/decorations", api_key=api_key)
+
+
+async def get_homestead_glyphs(api_key: str) -> list[dict]:
+    """Fetch homestead glyphs."""
+    return await _get("account/homestead/glyphs", api_key=api_key)
+
+
 async def get_character_render(api_key: str, name: str) -> bytes:
     from urllib.parse import quote
     headers = {"Authorization": f"Bearer {api_key}"}

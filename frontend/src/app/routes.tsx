@@ -16,6 +16,7 @@ import { MaterialsPage } from '../pages/MaterialsPage';
 import { DungeonsPage } from '../pages/DungeonsPage';
 import { WorldBossesPage } from '../pages/WorldBossesPage';
 import { AccountValuePage } from '../pages/AccountValuePage';
+import { HomePage } from '../pages/HomePage';
 import { ErrorBoundary } from '../shared/ui/ErrorBoundary';
 
 export function AppRoutes() {
@@ -40,6 +41,7 @@ export function AppRoutes() {
           <Route path="/dungeons/:name" element={<DungeonsPage />} />
           <Route path="/world-bosses/:name" element={<WorldBossesPage />} />
           <Route path="/account-value/:name" element={<AccountValuePage />} />
+          <Route path="/home/:name" element={<HomePage />} />
         </Routes>
       </ErrorBoundary>
     </BrowserRouter>

@@ -165,6 +165,41 @@ interface AccountValueResponse {
   bank: AccountValueCategory;
 }
 
+interface HomeNode {
+  id: string;
+  name: string;
+  icon: string;
+}
+
+interface HomeCat {
+  id: number;
+  name: string;
+  hint: string;
+}
+
+interface HomesteadDecoration {
+  id: number;
+  name: string;
+  icon: string;
+  rarity: string;
+  count: number;
+}
+
+interface HomesteadGlyph {
+  id: number;
+  name: string;
+  icon: string;
+  rarity: string;
+  count: number;
+}
+
+interface HomeResponse {
+  nodes: HomeNode[];
+  cats: HomeCat[];
+  decorations: HomesteadDecoration[];
+  glyphs: HomesteadGlyph[];
+}
+
 export const gw2Client = {
   auth: async () => {
     const { data } = await apiClient.post<AuthResponse>('/auth');
@@ -360,6 +395,11 @@ export const gw2Client = {
 
   getAccountValue: async () => {
     const { data } = await apiClient.get<AccountValueResponse>('/account/value');
+    return data;
+  },
+
+  getHomeData: async () => {
+    const { data } = await apiClient.get<HomeResponse>('/account/home');
     return data;
   },
 };

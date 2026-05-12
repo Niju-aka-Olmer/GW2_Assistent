@@ -72,6 +72,10 @@ from api.gw2_client import (
     get_account_dailycrafting,
     get_worldbosses,
     get_account_worldbosses,
+    get_home_nodes,
+    get_home_cats,
+    get_homestead_decorations,
+    get_homestead_glyphs,
 )
 from api.deepseek_client import analyze as deepseek_analyze
 from services.build_analyzer import analyze_build_text, fetch_metabattle_build, get_metabattle_build_name
@@ -1297,6 +1301,326 @@ async def account_value(authorization: Optional[str] = Header(None)):
             "total_gold": total_bank_value / 10000,
             "items": bank_breakdown[:500],
         },
+    }
+
+
+HOME_NODE_NAMES: dict[str, str] = {
+    "ancient_wood_node": "Древняя древесина",
+    "apothecary_node": "Аптекарь",
+    "artichoke_node": "Артишок",
+    "astral_essence_node": "Астральная эссенция",
+    "bauble_node": "Безделушка",
+    "black_lion_chest_node": "Сундук Чёрного льва",
+    "black_truffle_node": "Чёрный трюфель",
+    "bloodstone_node": "Кровавый камень",
+    "blue_berry_node": "Голубика",
+    "bone_node": "Кость",
+    "butternut_squash_node": "Ореховая тыква",
+    "cabbage_node": "Капуста",
+    "carrot_node": "Морковь",
+    "cassava_node": "Кассава",
+    "charged_quartz_node": "Заряженный кварц",
+    "cherry_node": "Вишня",
+    "chili_pepper_node": "Острый перец",
+    "clove_node": "Гвоздика",
+    "coal_node": "Уголь",
+    "coral_node": "Коралл",
+    "corpse_node": "Труп",
+    "crimson_artichoke_node": "Малиновый артишок",
+    "crimson_herb_node": "Малиновая трава",
+    "crystalline_aurillium_node": "Кристаллический ауриллий",
+    "cucumber_node": "Огурец",
+    "dragonite_node": "Драконит",
+    "ebon_shoulders_node": "Эбонитовые наплечники",
+    "eggs_node": "Яйца",
+    "elder_wood_node": "Древесина старейшин",
+    "empyreal_node": "Эмпиреал",
+    "flax_node": "Лён",
+    "garlic_node": "Чеснок",
+    "ghost_pepper_node": "Призрачный перец",
+    "ginger_node": "Имбирь",
+    "glimmering_silk_node": "Мерцающий шёлк",
+    "glob_of_ectoplasm_node": "Сгусток эктоплазмы",
+    "gold_node": "Золото",
+    "grape_node": "Виноград",
+    "green_artichoke_node": "Зелёный артишок",
+    "hard_wood_node": "Твёрдая древесина",
+    "herb_node": "Трава",
+    "iron_node": "Железо",
+    "jasper_node": "Яшма",
+    "kale_node": "Кале",
+    "krait_obelisk_node": "Обелиск крайтов",
+    "leather_node": "Кожа",
+    "leek_node": "Лук-порей",
+    "lemongrass_node": "Лимонная трава",
+    "lettuce_node": "Салат",
+    "lotus_node": "Лотос",
+    "maharaja_portal_node": "Портал магараджи",
+    "mango_node": "Манго",
+    "mist_essence_heavy_node": "Туманная эссенция (тяжёлая)",
+    "mist_essence_light_node": "Туманная эссенция (лёгкая)",
+    "mist_essence_medium_node": "Туманная эссенция (средняя)",
+    "mithril_node": "Мифрил",
+    "mussel_node": "Мидия",
+    "mystic_curio_node": "Мистическая диковинка",
+    "mystic_forge_node": "Мистическая кузня",
+    "nopal_node": "Нопаль",
+    "omnomberry_node": "Омном-ягода",
+    "onion_node": "Лук",
+    "orichalcum_node": "Орихалк",
+    "passion_fruit_node": "Маракуйя",
+    "petrified_wood_node": "Окаменелая древесина",
+    "platinumed_doubloon_node": "Платиновая монета",
+    "pomegranate_node": "Гранат",
+    "potato_node": "Картофель",
+    "prickly_pear_node": "Колючая груша",
+    "pumpkin_node": "Тыква",
+    "quartz_node": "Кварц",
+    "raspberry_node": "Малина",
+    "red_bean_node": "Красная фасоль",
+    "royal_herb_node": "Королевская трава",
+    "ruby_node": "Рубин",
+    "saffron_node": "Шафран",
+    "sassafras_node": "Сассафрас",
+    "snow_helicrysum_node": "Снежный гелихризум",
+    "snow_trillium_node": "Снежный триллиум",
+    "soy_bean_node": "Соевые бобы",
+    "spinel_node": "Шпинель",
+    "spooky_node": "Жуткий узел",
+    "sugar_pumpkin_node": "Сахарная тыква",
+    "sugar_node": "Сахар",
+    "sunflower_node": "Подсолнух",
+    "sweet_potato_node": "Сладкий картофель",
+    "thin_bloodstone_node": "Тонкий кровавый камень",
+    "truffle_node": "Трюфель",
+    "turnip_node": "Репа",
+    "ultimate_refinement_node": "Предельная очистка",
+    "underground_fae_node": "Подземный фей",
+    "vanilla_node": "Ваниль",
+    "winter_snowflake_node": "Зимняя снежинка",
+    "wintersday_node": "Зимний узел",
+    "witchs_brew_node": "Ведьмино зелье",
+    "wood_node": "Древесина",
+    "zucchini_node": "Цукини",
+}
+
+HOME_NODE_ICONS: dict[str, str] = {
+    "bloodstone_node": "https://wiki.guildwars2.com/images/7/7c/Bloodstone_Crystal.png",
+    "quartz_node": "https://wiki.guildwars2.com/images/4/4e/Quartz_Crystal.png",
+    "mithril_node": "https://wiki.guildwars2.com/images/1/1d/Mithril_Ore.png",
+    "orichalcum_node": "https://wiki.guildwars2.com/images/9/99/Orichalcum_Ore.png",
+    "iron_node": "https://wiki.guildwars2.com/images/a/a5/Iron_Ore.png",
+    "gold_node": "https://wiki.guildwars2.com/images/2/2b/Gold_Ore.png",
+    "coal_node": "https://wiki.guildwars2.com/images/5/54/Lump_of_Coal.png",
+    "elder_wood_node": "https://wiki.guildwars2.com/images/5/5b/Elder_Wood_Log.png",
+    "hard_wood_node": "https://wiki.guildwars2.com/images/b/ba/Hard_Wood_Log.png",
+    "ancient_wood_node": "https://wiki.guildwars2.com/images/5/55/Ancient_Wood_Log.png",
+    "wood_node": "https://wiki.guildwars2.com/images/a/a5/Wood_Log.png",
+    "snow_trillium_node": "https://wiki.guildwars2.com/images/4/48/Snow_Trillium.png",
+    "ghost_pepper_node": "https://wiki.guildwars2.com/images/a/ad/Ghost_Pepper.png",
+    "omnomberry_node": "https://wiki.guildwars2.com/images/e/ef/Omnomberry.png",
+    "passion_fruit_node": "https://wiki.guildwars2.com/images/1/1b/Passion_Fruit.png",
+    "coral_node": "https://wiki.guildwars2.com/images/9/92/Coral_Tentacle.png",
+    "mussel_node": "https://wiki.guildwars2.com/images/6/6d/Mussel.png",
+    "krait_obelisk_node": "https://wiki.guildwars2.com/images/2/2b/Krait_Obelisk.png",
+    "petrified_wood_node": "https://wiki.guildwars2.com/images/a/ae/Petrified_Wood.png",
+    "flax_node": "https://wiki.guildwars2.com/images/1/11/Flax_Blossom.png",
+    "cactus_node": "https://wiki.guildwars2.com/images/e/e9/Cactus.png",
+    "ruby_node": "https://wiki.guildwars2.com/images/9/96/Ruby_Crystal.png",
+    "spinel_node": "https://wiki.guildwars2.com/images/2/26/Spinel_Crystal.png",
+    "jasper_node": "https://wiki.guildwars2.com/images/a/ab/Jasper_Crystal.png",
+    "maharaja_portal_node": "https://wiki.guildwars2.com/images/0/0a/Maharaja%27s_Portal.png",
+    "bauble_node": "https://wiki.guildwars2.com/images/a/ab/Bauble.png",
+}
+
+CAT_NAMES: dict[int, str] = {
+    1: "Рыжий полосатый",
+    2: "Чёрный кот",
+    3: "Калико",
+    4: "Бело-рыжий",
+    5: "Серый полосатый",
+    6: "Чёрно-белый",
+    7: "Черепаховый",
+    8: "Голубой русский",
+    9: "Коричневый полосатый",
+    10: "Белый кот",
+    11: "Сиамский",
+    12: "Персидский",
+    13: "Кремовый",
+    14: "Двухцветный",
+    15: "Чёрный дымчатый",
+    16: "Оранжевый",
+    17: "Серебристый полосатый",
+    18: "Лиловый",
+    19: "Колор-пойнт",
+    20: "Шоколадный",
+    21: "Цейлонская кошка",
+    22: "Бурманская",
+    23: "Сфинкс",
+    24: "Мейн-кун",
+    25: "Гималайская",
+    26: "Рэгдолл",
+    27: "Бенгальская",
+    28: "Абиссинская",
+    29: "Норвежская лесная",
+    30: "Шартрез",
+    31: "Корат",
+    32: "Японский бобтейл",
+    33: "Американская короткошёрстная",
+    34: "Британская короткошёрстная",
+    35: "Экзотическая короткошёрстная",
+    36: "Скоттиш-фолд",
+    37: "Селкирк-рекс",
+    38: "Корниш-рекс",
+    39: "Девон-рекс",
+    40: "Турецкая ангора",
+    41: "Турецкий ван",
+    42: "Сомалийская",
+    43: "Манчкин",
+    44: "Сингапурская",
+    45: "Кимрик",
+    46: "Петерболд",
+    47: "Ла-перм",
+    48: "Саванна",
+    49: "Чаузи",
+    50: "Оцикет",
+    51: "Сервал",
+    52: "Кошка-рыболов",
+    53: "Бомбейская",
+    54: "Бурмилла",
+    55: "Гавайская",
+    56: "Египетская мау",
+    57: "Минскин",
+    58: "Наполеон",
+    59: "Пиксибоб",
+    60: "Тойгер",
+    61: "Американский кёрл",
+    62: "Балинезийская",
+    63: "Длинношёрстная",
+    64: "Йоркская шоколадная",
+    65: "Кхао-мани",
+    66: "Невская маскарадная",
+    67: "Рагамаффин",
+    68: "Сноу-шу",
+    69: "Сукок",
+    70: "Бразильская короткошёрстная",
+}
+
+HOMESTEAD_DECORATION_NAMES: dict[str, str] = {
+    "homestead_bench": "Скамейка",
+    "homestead_table": "Стол",
+    "homestead_chair": "Стул",
+    "homestead_rug": "Ковёр",
+    "homestead_lamp": "Лампа",
+    "homestead_plant": "Растение",
+    "homestead_fence": "Забор",
+    "homestead_path": "Дорожка",
+    "homestead_wall": "Стена",
+    "homestead_roof": "Крыша",
+}
+
+
+@router.get("/account/home")
+async def account_home(authorization: Optional[str] = Header(None)):
+    api_key = _get_api_key(authorization)
+
+    nodes_task = get_home_nodes(api_key)
+    cats_task = get_home_cats(api_key)
+    decorations_task = get_homestead_decorations(api_key)
+    glyphs_task = get_homestead_glyphs(api_key)
+
+    nodes_data, cats_data, decorations_data, glyphs_data = await asyncio.gather(
+        nodes_task, cats_task, decorations_task, glyphs_task,
+        return_exceptions=True,
+    )
+
+    # Enrich nodes
+    if isinstance(nodes_data, Exception):
+        nodes_enriched = []
+    else:
+        nodes_enriched = []
+        for node_id in nodes_data:
+            node_name = HOME_NODE_NAMES.get(node_id, node_id)
+            node_icon = HOME_NODE_ICONS.get(node_id, "")
+            nodes_enriched.append({
+                "id": node_id,
+                "name": node_name,
+                "icon": node_icon,
+            })
+        nodes_enriched.sort(key=lambda x: x["name"])
+
+    # Enrich cats
+    if isinstance(cats_data, Exception):
+        cats_enriched = []
+    else:
+        cats_enriched = []
+        for cat in cats_data:
+            cat_id = cat.get("id", 0)
+            cat_name = CAT_NAMES.get(cat_id, cat.get("name", f"Кот {cat_id}"))
+            cats_enriched.append({
+                "id": cat_id,
+                "name": cat_name,
+                "hint": cat.get("hint", ""),
+            })
+        cats_enriched.sort(key=lambda x: x["name"])
+
+    # Enrich decorations (need item IDs)
+    if isinstance(decorations_data, Exception) or not decorations_data:
+        decorations_enriched = []
+    else:
+        decoration_item_ids = list(set(d.get("id", 0) for d in decorations_data if isinstance(d, dict)))
+        item_names = {}
+        if decoration_item_ids:
+            item_info = get_item_names(decoration_item_ids)
+            for item_id, info in item_info.items():
+                item_names[item_id] = info
+        decorations_enriched = []
+        for dec in decorations_data:
+            if not isinstance(dec, dict):
+                continue
+            dec_id = dec.get("id", 0)
+            dec_count = dec.get("count", 1)
+            item_data = item_names.get(dec_id, {})
+            decorations_enriched.append({
+                "id": dec_id,
+                "name": item_data.get("name", f"Украшение {dec_id}"),
+                "icon": item_data.get("icon", ""),
+                "rarity": item_data.get("rarity", "Basic"),
+                "count": dec_count,
+            })
+        decorations_enriched.sort(key=lambda x: x["name"])
+
+    # Enrich glyphs (need item IDs)
+    if isinstance(glyphs_data, Exception) or not glyphs_data:
+        glyphs_enriched = []
+    else:
+        glyph_item_ids = list(set(g.get("id", 0) for g in glyphs_data if isinstance(g, dict)))
+        glyph_names = {}
+        if glyph_item_ids:
+            glyph_info = get_item_names(glyph_item_ids)
+            for item_id, info in glyph_info.items():
+                glyph_names[item_id] = info
+        glyphs_enriched = []
+        for g in glyphs_data:
+            if not isinstance(g, dict):
+                continue
+            g_id = g.get("id", 0)
+            g_count = g.get("count", 1)
+            item_data = glyph_names.get(g_id, {})
+            glyphs_enriched.append({
+                "id": g_id,
+                "name": item_data.get("name", f"Глиф {g_id}"),
+                "icon": item_data.get("icon", ""),
+                "rarity": item_data.get("rarity", "Basic"),
+                "count": g_count,
+            })
+        glyphs_enriched.sort(key=lambda x: x["name"])
+
+    return {
+        "nodes": nodes_enriched,
+        "cats": cats_enriched,
+        "decorations": decorations_enriched,
+        "glyphs": glyphs_enriched,
     }
 
 

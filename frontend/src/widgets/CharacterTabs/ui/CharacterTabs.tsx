@@ -18,6 +18,7 @@ const TABS = [
   { path: (name: string) => `/dungeons/${encodeURIComponent(name)}`, label: 'Данжи' },
   { path: (name: string) => `/world-bosses/${encodeURIComponent(name)}`, label: 'Боссы' },
   { path: (name: string) => `/account-value/${encodeURIComponent(name)}`, label: 'Ценность' },
+  { path: (name: string) => `/home/${encodeURIComponent(name)}`, label: 'Дом' },
 ];
 
 function getActiveTab(pathname: string): string {
@@ -33,6 +34,7 @@ function getActiveTab(pathname: string): string {
   if (pathname.startsWith('/dungeons')) return 'Данжи';
   if (pathname.startsWith('/world-bosses')) return 'Боссы';
   if (pathname.startsWith('/account-value')) return 'Ценность';
+  if (pathname.startsWith('/home')) return 'Дом';
   return '';
 }
 
