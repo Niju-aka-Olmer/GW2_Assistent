@@ -8,30 +8,6 @@ import { Tabs } from '../shared/ui/Tabs';
 import { CharacterTabs } from '../widgets/CharacterTabs/ui/CharacterTabs';
 import { gw2Client } from '../shared/api/gw2Client';
 
-interface DungeonPath {
-  id: string;
-  name: string;
-  type: string;
-  completed: boolean;
-}
-
-interface Dungeon {
-  id: string;
-  name: string;
-  icon: string;
-  paths: DungeonPath[];
-  completed_count: number;
-  total_count: number;
-}
-
-interface WorldBoss {
-  id: string;
-  name: string;
-  icon: string;
-  map: string;
-  defeated: boolean;
-}
-
 function DungeonsTabContent() {
   const [search, setSearch] = useState('');
 

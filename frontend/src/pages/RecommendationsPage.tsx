@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Layout } from '../shared/ui/Layout';
 import { Card } from '../shared/ui/Card';

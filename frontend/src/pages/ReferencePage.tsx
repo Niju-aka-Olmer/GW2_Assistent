@@ -164,7 +164,6 @@ function ItemsTab({
 
   let filtered = (searchResults?.items || []).slice(0, 100);
   if (category) {
-    const catInfo = ITEM_CATEGORIES[category];
     filtered = filtered.filter((item: any) => {
       const det = detailsMap.get(item.id);
       if (!det) return true;

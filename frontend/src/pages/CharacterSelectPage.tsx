@@ -229,7 +229,7 @@ function ApiKeyPage({ onKeySet }: { onKeySet: () => void }) {
           <div className="mt-4 pt-4 border-t border-border-primary">
             <p className="text-xs text-text-secondary text-center mb-2">Ключ сохранён в памяти</p>
             <Button
-              variant="gw2"
+              variant="gold"
               onClick={handleForget}
               className="w-full text-xs"
             >

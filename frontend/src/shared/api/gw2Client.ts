@@ -84,7 +84,7 @@ interface CacheClearResponse {
   message: string;
 }
 
-interface LegendaryArmoryItem {
+export interface LegendaryArmoryItem {
   id: number;
   name: string;
   icon: string;

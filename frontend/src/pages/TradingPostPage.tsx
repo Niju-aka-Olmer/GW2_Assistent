@@ -392,7 +392,7 @@ export function TradingPostPage() {
                 {searchQuery_.data.has_more && (
                   <div className="flex justify-center gap-2 mt-4">
                     <Button
-                      variant="gw2"
+                      variant="gold"
                       className="text-xs px-3 py-1"
                       disabled={page === 0}
                       onClick={() => setPage(p => p - 1)}
@@ -403,7 +403,7 @@ export function TradingPostPage() {
                       Страница {page + 1}
                     </span>
                     <Button
-                      variant="gw2"
+                      variant="gold"
                       className="text-xs px-3 py-1"
                       onClick={() => setPage(p => p + 1)}
                     >

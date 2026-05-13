@@ -90,11 +90,9 @@ function ObjectiveCard({ obj }: { obj: WizardsVaultObjective }) {
 function ObjectiveList({
   data,
   isLoading,
-  label,
 }: {
   data: WizardsVaultResponse | undefined;
   isLoading: boolean;
-  label: string;
 }) {
   if (isLoading) {
     return (
